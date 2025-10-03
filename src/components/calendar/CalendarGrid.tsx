@@ -1,0 +1,68 @@
+import { Post, Client } from "@/lib/types";
+import dayjs, { Dayjs } from "dayjs";
+import CalendarDay from "./CalendarDay";
+import { useAppStore } from "@/store/appStore";
+
+interface CalendarGridProps {
+  currentDate: Dayjs;
+  posts: Post[];
+  onDayClick: (date: Dayjs) => void;
+  onPostClick: (post: Post) => void;
+  viewMode: "month" | "week";
+  isAdminView: boolean;
+}
+
+export default function CalendarGrid({
+  currentDate,
+  posts,
+  onDayClick,
+  onPostClick,
+  viewMode,
+  isAdminView,
+}: CalendarGridProps) {
+  const clients = useAppStore((state) => state.clients);
+
+  const generateDates = () => {
+    const start = currentDate.startOf(viewMode).startOf("week");
+    const end = currentDate.endOf(viewMode).endOf("week");
+    const dates = [];
+    let current = start;
+    while (current.isBefore(end) || current.isSame(end, "day")) {
+      dates.push(current);
+      current = current.add(1, "day");
+    }
+    return dates;
+  };
+
+  const calendarDates = generateDates();
+  const daysOfWeek = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+  return (
+    <>
+      <div className="grid grid-cols-7 gap-px text-xs font-semibold text-center text-gray-400 mb-2">
+        {daysOfWeek.map((day) => (
+          <div key={day}>{day}</div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-px">
+        {calendarDates.map((date) => {
+          const postsForDay = posts.filter((p) =>
+            dayjs(p.timestamp).isSame(date, "day")
+          );
+          return (
+            <CalendarDay
+              key={date.toString()}
+              date={date}
+              posts={postsForDay}
+              isCurrentMonth={date.isSame(currentDate, "month")}
+              onDayClick={() => onDayClick(date)}
+              onPostClick={onPostClick}
+              isAdminView={isAdminView}
+              clients={clients}
+            />
+          );
+        })}
+      </div>
+    </>
+  );
+}
