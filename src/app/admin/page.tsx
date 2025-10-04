@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useAppStore } from "@/store/appStore";
 import { fetchAllClientData, getClientProfilePicture } from "@/lib/api";
-import { Post, Client, SimulatedPost } from "@/lib/types";
+import { Post } from "@/lib/types";
 import CalendarView from "@/components/calendar/CalendarView";
 import PostModal from "@/components/common/PostModal";
 import DayPostsModal from "./DayPostsModal";
@@ -12,60 +12,72 @@ import { CirclePlus as PlusCircle } from "lucide-react";
 import CreatePostModal from "./CreatePostModal";
 
 export default function AdminDashboardPage() {
-  const { clients, simulatedPosts, updateClient, updateSimulatedPostsStatus } =
-    useAppStore();
-  const [allPosts, setAllPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    clients,
+    simulatedPosts,
+    updateClient,
+    updateSimulatedPostsStatus,
+    postsByClientId,
+    addPostsForClient,
+    fetchedClients,
+    markClientAsFetched,
+  } = useAppStore();
 
+  const [loading, setLoading] = useState(true);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [isPostModalOpen, setPostModalOpen] = useState(false);
-
   const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
   const [isDayModalOpen, setDayModalOpen] = useState(false);
-
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
-
-      // Atualiza status de posts simulados
       updateSimulatedPostsStatus();
 
       const visibleClients = clients.filter((c) => c.isVisible);
-
-      const promises = visibleClients.map((client) =>
-        fetchAllClientData(client)
+      const clientsToFetch = visibleClients.filter(
+        (c) => !fetchedClients.includes(c.id)
       );
-      const profilePicPromises = visibleClients.map((client) => {
-        if (!client.profile_picture_url) {
-          // busca foto se ainda não tiver
-          return getClientProfilePicture(client.id, client.access_token);
-        }
-        return Promise.resolve(client.profile_picture_url);
-      });
 
-      const results = await Promise.all(promises);
-      const picResults = await Promise.all(profilePicPromises);
+      if (clientsToFetch.length > 0) {
+        const promises = clientsToFetch.map(async (client) => {
+          const posts = await fetchAllClientData(client);
+          addPostsForClient(client.id, posts);
+          markClientAsFetched(client.id);
 
-      picResults.forEach((url, index) => {
-        const client = visibleClients[index];
-        if (url && !client.profile_picture_url) {
-          updateClient(client.id, { profile_picture_url: url });
-        }
-      });
-
-      const flattenedPosts = results.flat();
-      setAllPosts(flattenedPosts);
+          if (!client.profile_picture_url) {
+            const picUrl = await getClientProfilePicture(
+              client.id,
+              client.access_token
+            );
+            if (picUrl) {
+              updateClient(client.id, { profile_picture_url: picUrl });
+            }
+          }
+        });
+        await Promise.all(promises);
+      }
       setLoading(false);
     }
     fetchData();
-  }, [clients]);
+  }, [
+    clients,
+    updateSimulatedPostsStatus,
+    addPostsForClient,
+    fetchedClients,
+    markClientAsFetched,
+    updateClient,
+  ]);
+
+  const allPosts = useMemo(() => {
+    return Object.values(postsByClientId).flat();
+  }, [postsByClientId]);
 
   const combinedPosts = useMemo(() => {
     const transformedSimulatedPosts: Post[] = simulatedPosts.map((p) => ({
       id: p.id,
-      platform: "instagram", // Default platform for simulated
+      platform: "instagram",
       caption: p.caption,
       timestamp: p.scheduledAt,
       media_url: p.mediaUrl,
@@ -73,6 +85,8 @@ export default function AdminDashboardPage() {
       status: p.status,
       media_type: p.media_type,
       clientId: p.clientId,
+      isApproved: p.isApproved,
+      editHistory: p.editHistory,
     }));
     return [...allPosts, ...transformedSimulatedPosts].sort(
       (a, b) =>
@@ -137,7 +151,6 @@ export default function AdminDashboardPage() {
         clients={clients}
         onPostSelect={(post) => {
           setDayModalOpen(false);
-          // Pequeno delay para garantir que o primeiro modal fechou antes de abrir o segundo
           setTimeout(() => handlePostClick(post), 300);
         }}
       />

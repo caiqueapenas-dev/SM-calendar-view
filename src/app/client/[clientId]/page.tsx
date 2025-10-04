@@ -3,9 +3,9 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/store/appStore";
-import { fetchAllClientData } from "@/lib/api";
-import { Post, Client, SimulatedPost } from "@/lib/types";
-import dayjs from "dayjs";
+import { fetchAllClientData, getClientProfilePicture } from "@/lib/api";
+import { Post, SimulatedPost } from "@/lib/types";
+import dayjs, { Dayjs } from "dayjs";
 import CalendarView from "@/components/calendar/CalendarView";
 import PostCard from "@/components/common/PostCard";
 import PostModal from "@/components/common/PostModal";
@@ -16,32 +16,62 @@ export default function ClientDashboardPage({
 }: {
   params: { clientId: string };
 }) {
-  const { clients, logout, simulatedPosts, updateSimulatedPostsStatus } =
-    useAppStore();
-  const [posts, setPosts] = useState<Post[]>([]);
+  const {
+    clients,
+    logout,
+    simulatedPosts,
+    updateSimulatedPostsStatus,
+    postsByClientId,
+    addPostsForClient,
+    fetchedClients,
+    markClientAsFetched,
+    updateClient,
+  } = useAppStore();
+
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"grid" | "calendar">("grid");
-
   const [visiblePublished, setVisiblePublished] = useState(3);
   const [visibleStories, setVisibleStories] = useState(3);
-
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [isModalOpen, setModalOpen] = useState(false);
-
   const router = useRouter();
 
   const client = clients.find((c) => c.id === params.clientId);
+  const posts = postsByClientId[params.clientId] || [];
 
   useEffect(() => {
-    if (client) {
-      setLoading(true);
-      updateSimulatedPostsStatus();
-      fetchAllClientData(client).then((data) => {
-        setPosts(data);
+    async function fetchData() {
+      if (client && !fetchedClients.includes(client.id)) {
+        setLoading(true);
+        updateSimulatedPostsStatus();
+        const data = await fetchAllClientData(client);
+        addPostsForClient(client.id, data);
+        markClientAsFetched(client.id);
+
+        if (!client.profile_picture_url) {
+          const picUrl = await getClientProfilePicture(
+            client.id,
+            client.access_token
+          );
+          if (picUrl) {
+            updateClient(client.id, { profile_picture_url: picUrl });
+          }
+        }
         setLoading(false);
-      });
+      } else if (posts.length > 0) {
+        setLoading(false);
+      }
     }
-  }, [client]);
+    fetchData();
+  }, [
+    client,
+    fetchedClients,
+    addPostsForClient,
+    markClientAsFetched,
+    updateClient,
+    updateSimulatedPostsStatus,
+    posts,
+  ]);
 
   const combinedPosts = useMemo(() => {
     const clientSimulatedPosts: Post[] = simulatedPosts
@@ -55,6 +85,8 @@ export default function ClientDashboardPage({
         status: p.status,
         media_type: p.media_type,
         clientId: p.clientId,
+        isApproved: p.isApproved,
+        editHistory: p.editHistory,
       }));
 
     return [...posts, ...clientSimulatedPosts].sort(
