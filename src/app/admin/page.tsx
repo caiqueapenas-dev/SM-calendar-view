@@ -42,18 +42,27 @@ export default function AdminDashboardPage() {
 
       if (clientsToFetch.length > 0) {
         const promises = clientsToFetch.map(async (client) => {
-          const posts = await fetchAllClientData(client);
-          addPostsForClient(client.id, posts);
-          markClientAsFetched(client.id);
+          try {
+            const posts = await fetchAllClientData(client);
+            addPostsForClient(client.id, posts);
+            markClientAsFetched(client.id);
 
-          if (!client.profile_picture_url) {
-            const picUrl = await getClientProfilePicture(
-              client.id,
-              client.access_token
-            );
-            if (picUrl) {
-              updateClient(client.id, { profile_picture_url: picUrl });
+            if (!client.profile_picture_url) {
+              const picUrl = await getClientProfilePicture(
+                client.id,
+                client.access_token
+              );
+              if (picUrl) {
+                updateClient(client.id, { profile_picture_url: picUrl });
+              }
             }
+          } catch (error) {
+            console.error(
+              `Falha ao buscar dados para o cliente ${client.name}:`,
+              error
+            );
+            // Marcar como 'fetched' mesmo em caso de erro para não tentar de novo
+            markClientAsFetched(client.id);
           }
         });
         await Promise.all(promises);
