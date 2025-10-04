@@ -1,4 +1,4 @@
-import { Dayjs } from "dayjs";
+import dayjs, { Dayjs } from "dayjs";
 import { Post, Client } from "@/lib/types";
 import Modal from "../common/Modal";
 import MediaTypeTag from "../common/MediaTypeTag";

@@ -7,8 +7,8 @@ import { Post, Client, SimulatedPost } from "@/lib/types";
 import CalendarView from "@/components/calendar/CalendarView";
 import PostModal from "@/components/common/PostModal";
 import DayPostsModal from "@/components/admin/DayPostsModal";
-import { Dayjs } from "dayjs";
-import { PlusCircle } from "lucide-react";
+import dayjs, { Dayjs } from "dayjs";
+import { CirclePlus as PlusCircle } from "lucide-react";
 import CreatePostModal from "@/components/admin/CreatePostModal";
 
 export default function AdminDashboardPage() {

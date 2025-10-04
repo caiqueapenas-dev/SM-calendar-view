@@ -1,3 +1,5 @@
+import { Post, PostMediaType } from "./types";
+
 const API_VERSION = "v23.0";
 const BASE_URL = `https://graph.facebook.com/${API_VERSION}`;
 
