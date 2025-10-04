@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/store/appStore";
-import { fetchAllClientData, getClientProfilePicture } from "@/lib/api";
+import { fetchClientPosts, getClientById } from "@/lib/api";
 import { Post, SimulatedPost } from "@/lib/types";
 import dayjs, { Dayjs } from "dayjs";
 import CalendarView from "@/components/calendar/CalendarView";
@@ -44,19 +44,10 @@ export default function ClientDashboardPage({
       if (client && !fetchedClients.includes(client.id)) {
         setLoading(true);
         updateSimulatedPostsStatus();
-        const data = await fetchAllClientData(client);
+        const data = await fetchClientPosts(client);
         addPostsForClient(client.id, data);
         markClientAsFetched(client.id);
 
-        if (!client.profile_picture_url) {
-          const picUrl = await getClientProfilePicture(
-            client.id,
-            client.access_token
-          );
-          if (picUrl) {
-            updateClient(client.id, { profile_picture_url: picUrl });
-          }
-        }
         setLoading(false);
       } else if (posts.length > 0) {
         setLoading(false);
@@ -84,7 +75,7 @@ export default function ClientDashboardPage({
         media_url: p.mediaUrl,
         status: p.status,
         media_type: p.media_type,
-        clientId: p.clientId,
+        client: client!,
         isApproved: p.isApproved,
         editHistory: p.editHistory,
       }));

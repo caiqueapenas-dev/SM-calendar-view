@@ -7,10 +7,11 @@ export interface Post {
   thumbnail_url?: string;
   status: "published" | "scheduled";
   media_type: "FOTO" | "VIDEO" | "CARROSSEL" | "STORY" | "REELS";
-  clientId: string;
+  client: Client;
   isApproved?: boolean;
   editHistory?: EditHistoryItem[];
   children?: { id: string; media_url: string }[];
+  permalink?: string;
 }
 
 export interface EditHistoryItem {

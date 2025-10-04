@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import { Client, Post, SimulatedPost, EditHistoryItem } from "@/lib/types";
-import { initialClients } from "@/lib/api";
+import { initialClients } from "./clients"; // A importação agora vai funcionar
 import { v4 as uuidv4 } from "uuid";
 import dayjs from "dayjs";
 
@@ -34,7 +34,7 @@ export const useAppStore = create<AppState>()(
     immer((set, get) => ({
       user: null,
       userType: null,
-      clients: initialClients.map(
+      clients: (initialClients || []).map(
         (c: Omit<Client, "isVisible" | "customName">) => ({
           ...c,
           isVisible: true,
