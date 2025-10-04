@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useAppStore } from "@/store/appStore";
 import { fetchAllClientData } from "@/lib/api";
 import { Post, Client, SimulatedPost } from "@/lib/types";
@@ -26,6 +27,8 @@ export default function ClientDashboardPage({
 
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [isModalOpen, setModalOpen] = useState(false);
+
+  const router = useRouter();
 
   const client = clients.find((c) => c.id === params.clientId);
 
@@ -65,6 +68,11 @@ export default function ClientDashboardPage({
     setModalOpen(true);
   };
 
+  const handleLogout = () => {
+    logout();
+    router.push("/");
+  };
+
   const stories24h = combinedPosts.filter(
     (p) =>
       p.media_type === "STORY" && dayjs().diff(dayjs(p.timestamp), "hour") <= 24
@@ -86,7 +94,7 @@ export default function ClientDashboardPage({
     return (
       <div className="text-center mt-20 text-red-500">
         Cliente não encontrado.{" "}
-        <button onClick={logout} className="underline">
+        <button onClick={handleLogout} className="underline">
           Voltar
         </button>
       </div>
@@ -102,7 +110,7 @@ export default function ClientDashboardPage({
           <p className="text-gray-400">Aqui estão suas publicações.</p>
         </div>
         <button
-          onClick={logout}
+          onClick={handleLogout}
           className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg self-start md:self-center flex items-center gap-2"
         >
           <LogOut size={18} /> Sair

@@ -2,7 +2,7 @@
 // mas para este protótipo, usaremos um campo de URL para a mídia.
 "use client";
 
-import Modal from "../common/Modal";
+import Modal from "../../components/common/Modal";
 import { useState } from "react";
 import { useAppStore } from "@/store/appStore";
 import { SimulatedPost } from "@/lib/types";

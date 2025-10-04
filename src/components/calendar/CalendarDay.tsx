@@ -1,6 +1,7 @@
 import { Post, Client } from "@/lib/types";
 import { Dayjs } from "dayjs";
 import MediaTypeTag from "../common/MediaTypeTag";
+import dayjs from "dayjs";
 
 interface CalendarDayProps {
   date: Dayjs;

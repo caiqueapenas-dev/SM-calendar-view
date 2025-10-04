@@ -2,11 +2,14 @@
 
 import { useState } from "react";
 import { useAppStore } from "@/store/appStore";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const { login, clients } = useAppStore();
   const [clientId, setClientId] = useState("");
   const [error, setError] = useState("");
+
+  const router = useRouter();
 
   const handleClientLogin = () => {
     if (!clientId) {
@@ -17,6 +20,7 @@ export default function LoginPage() {
     if (user) {
       setError("");
       login(user, "client");
+      router.push(`/client/${user.id}`);
     } else {
       setError("ID do cliente não encontrado.");
     }
@@ -24,6 +28,7 @@ export default function LoginPage() {
 
   const handleAdminLogin = () => {
     login({ id: "admin", name: "Admin" }, "admin");
+    router.push("/admin");
   };
 
   return (

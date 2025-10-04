@@ -1,7 +1,7 @@
 import dayjs, { Dayjs } from "dayjs";
 import { Post, Client } from "@/lib/types";
-import Modal from "../common/Modal";
-import MediaTypeTag from "../common/MediaTypeTag";
+import Modal from "../../components/common/Modal";
+import MediaTypeTag from "../../components/common/MediaTypeTag";
 
 interface DayPostsModalProps {
   isOpen: boolean;

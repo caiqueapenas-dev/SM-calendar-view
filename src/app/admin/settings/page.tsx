@@ -1,4 +1,4 @@
-import ClientSettings from "@/components/admin/ClientSettings";
+import ClientSettings from "../ClientSettings";
 
 export default function SettingsPage() {
   return (

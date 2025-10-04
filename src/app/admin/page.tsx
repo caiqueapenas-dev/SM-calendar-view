@@ -6,10 +6,10 @@ import { fetchAllClientData, getClientProfilePicture } from "@/lib/api";
 import { Post, Client, SimulatedPost } from "@/lib/types";
 import CalendarView from "@/components/calendar/CalendarView";
 import PostModal from "@/components/common/PostModal";
-import DayPostsModal from "@/components/admin/DayPostsModal";
+import DayPostsModal from "./DayPostsModal";
 import dayjs, { Dayjs } from "dayjs";
 import { CirclePlus as PlusCircle } from "lucide-react";
-import CreatePostModal from "@/components/admin/CreatePostModal";
+import CreatePostModal from "./CreatePostModal";
 
 export default function AdminDashboardPage() {
   const { clients, simulatedPosts, updateClient, updateSimulatedPostsStatus } =

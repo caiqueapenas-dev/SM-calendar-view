@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { useAppStore } from "@/store/appStore";
 import { LayoutDashboard, Settings, LogOut } from "lucide-react";
 
+import { useRouter } from "next/navigation";
+
 export default function AdminLayout({
   children,
 }: {
@@ -12,6 +14,8 @@ export default function AdminLayout({
 }) {
   const pathname = usePathname();
   const { logout } = useAppStore();
+
+  const router = useRouter();
 
   const navItems = [
     { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
@@ -42,7 +46,10 @@ export default function AdminLayout({
           })}
         </nav>
         <button
-          onClick={logout}
+          onClick={() => {
+            logout();
+            router.push("/");
+          }}
           className="mt-auto flex items-center gap-3 px-4 py-2 rounded-lg text-lg text-red-400 hover:bg-red-900/50 hover:text-red-300 transition-colors"
         >
           <LogOut size={20} />
