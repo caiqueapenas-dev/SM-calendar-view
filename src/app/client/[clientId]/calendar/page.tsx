@@ -1,0 +1,46 @@
+"use client";
+
+import { useState } from "react";
+import { useAppStore } from "@/store/appStore";
+import { Post } from "@/lib/types";
+import { Dayjs } from "dayjs";
+import CalendarView from "@/components/calendar/CalendarView";
+import PostModal from "@/components/common/PostModal";
+
+export default function ClientCalendarPage({
+  params,
+}: {
+  params: { clientId: string };
+}) {
+  const { posts } = useAppStore();
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [isModalOpen, setModalOpen] = useState(false);
+
+  const clientPosts = posts.filter((p) => p.clientId === params.clientId);
+
+  const handlePostClick = (post: Post) => {
+    setSelectedPost(post);
+    setModalOpen(true);
+  };
+
+  const handleDayClick = (date: Dayjs) => {
+    // Ação ao clicar no dia pode ser implementada aqui se necessário
+  };
+
+  return (
+    <>
+      <CalendarView
+        posts={clientPosts}
+        onPostClick={handlePostClick}
+        onDayClick={handleDayClick}
+        isAdminView={false}
+      />
+
+      <PostModal
+        isOpen={isModalOpen}
+        onClose={() => setModalOpen(false)}
+        post={selectedPost}
+      />
+    </>
+  );
+}

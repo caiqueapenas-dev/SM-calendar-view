@@ -67,10 +67,9 @@ export default function CalendarDay({
                 <img
                   src={
                     client.profile_picture_url ||
-                    `https://ui-avatars.com/api/?name=${client.name.substring(
-                      0,
-                      2
-                    )}&background=random`
+                    `https://ui-avatars.com/api/?name=${
+                      client.customName || client.name
+                    }&background=random`
                   }
                   alt={client.name}
                   className="w-8 h-8 rounded-full"
@@ -93,15 +92,9 @@ export default function CalendarDay({
                 e.stopPropagation();
                 onPostClick(post);
               }}
-              className="flex items-center text-xs p-1 rounded hover:bg-gray-700 cursor-pointer gap-1.5 truncate"
+              className="p-1 rounded hover:bg-gray-700 cursor-pointer"
             >
-              <MediaTypeTag
-                mediaType={post.media_type}
-                className="flex-shrink-0"
-              />
-              <span className="truncate text-gray-400">
-                {post.caption ? post.caption : "Post"}
-              </span>
+              <MediaTypeTag mediaType={post.mediaType} />
             </div>
           ))}
         </div>

@@ -31,13 +31,16 @@ export default function DayPostsModal({
     return acc;
   }, {} as Record<string, Post[]>);
 
+  const placeholderUrl = (text: string) =>
+    `https://placehold.co/100x100/1f2937/9ca3af?text=${text}`;
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title={`Posts de ${date.format("dddd, D [de] MMMM [de] YYYY")}`}
     >
-      <div className="p-6 overflow-y-auto">
+      <div className="p-6 overflow-y-auto max-h-[70vh]">
         {Object.entries(postsByClient).map(([clientId, clientPosts]) => {
           const client = clients.find((c) => c.id === clientId);
           return (
@@ -46,10 +49,9 @@ export default function DayPostsModal({
                 <img
                   src={
                     client?.profile_picture_url ||
-                    `https://ui-avatars.com/api/?name=${client?.name.substring(
-                      0,
-                      2
-                    )}&background=random`
+                    `https://ui-avatars.com/api/?name=${
+                      client?.customName || client?.name
+                    }&background=random`
                   }
                   alt={client?.name}
                   className="w-8 h-8 rounded-full"
@@ -66,20 +68,25 @@ export default function DayPostsModal({
                     className="flex items-center gap-4 p-2 rounded-lg hover:bg-gray-700 cursor-pointer"
                   >
                     <img
-                      src={post.thumbnail_url || post.media_url}
+                      src={post.thumbnailUrl || post.mediaUrl}
                       alt="thumbnail"
-                      className="w-16 h-16 object-cover rounded-md flex-shrink-0"
+                      className="w-12 h-12 object-cover rounded-md flex-shrink-0 bg-gray-900"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.onerror = null;
+                        target.src = placeholderUrl("Thumb");
+                      }}
                     />
                     <div className="overflow-hidden">
                       <div className="flex items-center gap-2">
-                        <MediaTypeTag mediaType={post.media_type} />
-                        <span className="text-xs text-gray-400">
-                          {dayjs(post.timestamp).format("HH:mm")}
+                        <span className="text-sm font-semibold text-gray-400">
+                          {dayjs(post.scheduledAt).format("HH:mm")}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-300 truncate mt-1">
-                        {post.caption || "Sem legenda"}
-                      </p>
+                      <MediaTypeTag
+                        mediaType={post.mediaType}
+                        className="mt-1"
+                      />
                     </div>
                   </li>
                 ))}

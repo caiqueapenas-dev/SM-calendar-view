@@ -1,76 +1,134 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useMemo } from "react";
 import { useAppStore } from "@/store/appStore";
 import { Post } from "@/lib/types";
-import { Dayjs } from "dayjs";
+import dayjs from "dayjs";
+import PostCard from "@/components/common/PostCard";
 import PostModal from "@/components/common/PostModal";
-import CalendarView from "@/components/calendar/CalendarView";
-import { LogOut } from "lucide-react";
 
 export default function ClientDashboardPage({
   params,
 }: {
   params: { clientId: string };
 }) {
-  const { clients, logout, posts } = useAppStore();
+  const { posts } = useAppStore();
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [isModalOpen, setModalOpen] = useState(false);
-  const router = useRouter();
+  const [visiblePublishedCount, setVisiblePublishedCount] = useState(5);
 
-  const client = clients.find((c) => c.id === params.clientId);
-  const clientPosts = posts.filter((p) => p.clientId === params.clientId);
+  const clientPosts = useMemo(() => {
+    return posts.filter((p) => p.clientId === params.clientId);
+  }, [posts, params.clientId]);
+
+  const postsForReview = useMemo(() => {
+    return clientPosts
+      .filter((p) => p.status === "aguardando_aprovacao")
+      .sort(
+        (a, b) =>
+          new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()
+      );
+  }, [clientPosts]);
+
+  const activeStories = useMemo(() => {
+    const now = dayjs();
+    return clientPosts.filter(
+      (p) =>
+        p.mediaType === "STORY" &&
+        p.status === "agendado" &&
+        now.isAfter(dayjs(p.scheduledAt)) &&
+        now.diff(dayjs(p.scheduledAt), "hour") <= 24
+    );
+  }, [clientPosts]);
+
+  const publishedPosts = useMemo(() => {
+    return clientPosts
+      .filter(
+        (p) =>
+          p.status === "agendado" &&
+          dayjs().isAfter(dayjs(p.scheduledAt)) &&
+          p.mediaType !== "STORY"
+      )
+      .sort(
+        (a, b) =>
+          new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime()
+      );
+  }, [clientPosts]);
 
   const handlePostClick = (post: Post) => {
     setSelectedPost(post);
     setModalOpen(true);
   };
 
-  const handleDayClick = (date: Dayjs) => {
-    // Could open a summary modal, but for now, we only open posts
-  };
-
-  const handleLogout = () => {
-    logout();
-    router.push("/");
-  };
-
-  if (!client)
-    return (
-      <div className="text-center mt-20 text-red-500">
-        Cliente não encontrado.{" "}
-        <button onClick={handleLogout} className="underline">
-          Voltar
-        </button>
-      </div>
-    );
-
   return (
-    <div className="container mx-auto p-4 md:p-8">
-      <header className="flex flex-col md:flex-row justify-between md:items-center mb-8 gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">
-            Bem-vindo, {client.customName || client.name}
-          </h1>
-          <p className="text-gray-400">
-            Aqui estão suas publicações agendadas.
-          </p>
-        </div>
-        <button
-          onClick={handleLogout}
-          className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg self-start md:self-center flex items-center gap-2"
-        >
-          <LogOut size={18} /> Sair
-        </button>
-      </header>
+    <div>
+      {/* Seção 1: Para Revisão */}
+      <section className="mb-12">
+        <h2 className="text-2xl font-semibold mb-4">Para Revisão</h2>
+        {postsForReview.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {postsForReview.map((p) => (
+              <PostCard
+                key={p.id}
+                post={p}
+                onClick={() => handlePostClick(p)}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="text-gray-400">Nenhum post para revisar no momento.</p>
+        )}
+      </section>
 
-      <CalendarView
-        posts={clientPosts}
-        onPostClick={handlePostClick}
-        onDayClick={handleDayClick}
-        isAdminView={false}
-      />
+      {/* Seção 2: Stories Ativos */}
+      <section className="mb-12">
+        <h2 className="text-2xl font-semibold mb-4">
+          Stories Ativos (Últimas 24h)
+        </h2>
+        {activeStories.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {activeStories.map((p) => (
+              <PostCard
+                key={p.id}
+                post={p}
+                onClick={() => handlePostClick(p)}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="text-gray-400">Sem story ativo.</p>
+        )}
+      </section>
+
+      {/* Seção 3: Publicações */}
+      <section>
+        <h2 className="text-2xl font-semibold mb-4">Últimas Publicações</h2>
+        {publishedPosts.length > 0 ? (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {publishedPosts.slice(0, visiblePublishedCount).map((p) => (
+                <PostCard
+                  key={p.id}
+                  post={p}
+                  onClick={() => handlePostClick(p)}
+                />
+              ))}
+            </div>
+            {visiblePublishedCount < publishedPosts.length && (
+              <div className="text-center mt-8">
+                <button
+                  onClick={() => setVisiblePublishedCount((prev) => prev + 5)}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg"
+                >
+                  Carregar Mais
+                </button>
+              </div>
+            )}
+          </>
+        ) : (
+          <p className="text-gray-400">Nenhum post publicado ainda.</p>
+        )}
+      </section>
 
       <PostModal
         isOpen={isModalOpen}
