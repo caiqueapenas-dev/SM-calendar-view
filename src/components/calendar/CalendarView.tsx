@@ -2,16 +2,18 @@
 import React, { useState } from "react";
 import dayjs, { Dayjs } from "dayjs";
 import "dayjs/locale/pt-br";
-import { Post } from "@/lib/types";
 import CalendarHeader from "./CalendarHeader";
 import CalendarGrid from "./CalendarGrid";
+import { Database } from "@/lib/database.types";
 
 dayjs.locale("pt-br");
 
+type PostRow = Database["public"]["Tables"]["posts"]["Row"];
+
 interface CalendarViewProps {
-  posts: Post[];
+  posts: PostRow[];
   onDayClick: (date: Dayjs) => void;
-  onPostClick: (post: Post) => void;
+  onPostClick: (post: PostRow) => void;
   isAdminView?: boolean;
 }
 

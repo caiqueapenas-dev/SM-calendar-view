@@ -1,13 +1,16 @@
-import { Post, Client } from "@/lib/types";
+import { Client } from "@/lib/types";
 import dayjs, { Dayjs } from "dayjs";
 import CalendarDay from "./CalendarDay";
 import { useAppStore } from "@/store/appStore";
+import { Database } from "@/lib/database.types";
+
+type PostRow = Database["public"]["Tables"]["posts"]["Row"];
 
 interface CalendarGridProps {
   currentDate: Dayjs;
-  posts: Post[];
+  posts: PostRow[];
   onDayClick: (date: Dayjs) => void;
-  onPostClick: (post: Post) => void;
+  onPostClick: (post: PostRow) => void;
   viewMode: "month" | "week";
   isAdminView: boolean;
 }
@@ -47,7 +50,7 @@ export default function CalendarGrid({
       <div className="grid grid-cols-7 gap-px">
         {calendarDates.map((date) => {
           const postsForDay = posts.filter((p) =>
-            dayjs(p.scheduledAt).isSame(date, "day")
+            dayjs(p.scheduled_at).isSame(date, "day")
           );
           return (
             <CalendarDay

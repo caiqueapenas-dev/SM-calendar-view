@@ -2,10 +2,12 @@
 
 import { useState, useMemo } from "react";
 import { useAppStore } from "@/store/appStore";
-import { Post } from "@/lib/types";
-import dayjs from "dayjs";
 import PostCard from "@/components/common/PostCard";
 import PostModal from "@/components/common/PostModal";
+import dayjs from "dayjs";
+import { Database } from "@/lib/database.types";
+
+type PostRow = Database["public"]["Tables"]["posts"]["Row"];
 
 export default function ClientDashboardPage({
   params,
@@ -13,12 +15,12 @@ export default function ClientDashboardPage({
   params: { clientId: string };
 }) {
   const { posts } = useAppStore();
-  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [selectedPost, setSelectedPost] = useState<PostRow | null>(null);
   const [isModalOpen, setModalOpen] = useState(false);
   const [visiblePublishedCount, setVisiblePublishedCount] = useState(5);
 
   const clientPosts = useMemo(() => {
-    return posts.filter((p) => p.clientId === params.clientId);
+    return posts.filter((p) => p.client_id === params.clientId);
   }, [posts, params.clientId]);
 
   const postsForReview = useMemo(() => {
@@ -26,7 +28,8 @@ export default function ClientDashboardPage({
       .filter((p) => p.status === "aguardando_aprovacao")
       .sort(
         (a, b) =>
-          new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()
+          new Date(a.scheduled_at).getTime() -
+          new Date(b.scheduled_at).getTime()
       );
   }, [clientPosts]);
 
@@ -34,10 +37,10 @@ export default function ClientDashboardPage({
     const now = dayjs();
     return clientPosts.filter(
       (p) =>
-        p.mediaType === "STORY" &&
+        p.media_type === "STORY" &&
         p.status === "agendado" &&
-        now.isAfter(dayjs(p.scheduledAt)) &&
-        now.diff(dayjs(p.scheduledAt), "hour") <= 24
+        now.isAfter(dayjs(p.scheduled_at)) &&
+        now.diff(dayjs(p.scheduled_at), "hour") <= 24
     );
   }, [clientPosts]);
 
@@ -46,23 +49,23 @@ export default function ClientDashboardPage({
       .filter(
         (p) =>
           p.status === "agendado" &&
-          dayjs().isAfter(dayjs(p.scheduledAt)) &&
-          p.mediaType !== "STORY"
+          dayjs().isAfter(dayjs(p.scheduled_at)) &&
+          p.media_type !== "STORY"
       )
       .sort(
         (a, b) =>
-          new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime()
+          new Date(b.scheduled_at).getTime() -
+          new Date(a.scheduled_at).getTime()
       );
   }, [clientPosts]);
 
-  const handlePostClick = (post: Post) => {
+  const handlePostClick = (post: PostRow) => {
     setSelectedPost(post);
     setModalOpen(true);
   };
 
   return (
     <div>
-      {/* Seção 1: Para Revisão */}
       <section className="mb-12">
         <h2 className="text-2xl font-semibold mb-4">Para Revisão</h2>
         {postsForReview.length > 0 ? (
@@ -80,7 +83,6 @@ export default function ClientDashboardPage({
         )}
       </section>
 
-      {/* Seção 2: Stories Ativos */}
       <section className="mb-12">
         <h2 className="text-2xl font-semibold mb-4">
           Stories Ativos (Últimas 24h)
@@ -100,7 +102,6 @@ export default function ClientDashboardPage({
         )}
       </section>
 
-      {/* Seção 3: Publicações */}
       <section>
         <h2 className="text-2xl font-semibold mb-4">Últimas Publicações</h2>
         {publishedPosts.length > 0 ? (

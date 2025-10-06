@@ -1,7 +1,12 @@
-export type PostMediaType = "FOTO" | "VIDEO" | "CARROSSEL" | "STORY" | "REELS";
-export type PostStatus = "aguardando_aprovacao" | "agendado" | "negado";
+// ==============================
+// Tipos globais da aplicação
+// ==============================
+
 export type UserRole = "admin" | "client";
 
+// ==============================
+// Histórico de Edição
+// ==============================
 export interface EditHistoryItem {
   author: UserRole;
   oldCaption: string;
@@ -9,6 +14,15 @@ export interface EditHistoryItem {
   timestamp: string; // ISO string
 }
 
+// ==============================
+// Tipos de Mídia e Status de Post
+// ==============================
+export type PostMediaType = "FOTO" | "VIDEO" | "CARROSSEL" | "STORY" | "REELS";
+export type PostStatus = "aguardando_aprovacao" | "agendado" | "negado";
+
+// ==============================
+// Estrutura principal do Post
+// ==============================
 export interface Post {
   id: string; // uuid
   clientId: string;
@@ -17,7 +31,7 @@ export interface Post {
   mediaUrl: string;
   thumbnailUrl?: string | null;
   caption: string;
-  scheduledAt: string; // ISO string with timezone
+  scheduledAt: string; // ISO string com timezone
   status: PostStatus;
   createdBy: UserRole;
   updatedAt: string; // ISO string
@@ -25,6 +39,9 @@ export interface Post {
   editHistory: EditHistoryItem[];
 }
 
+// ==============================
+// Estrutura do Cliente
+// ==============================
 export interface Client {
   id: string;
   name: string;

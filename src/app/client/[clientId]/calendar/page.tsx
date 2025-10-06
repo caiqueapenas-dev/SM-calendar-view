@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { useAppStore } from "@/store/appStore";
-import { Post } from "@/lib/types";
 import { Dayjs } from "dayjs";
 import CalendarView from "@/components/calendar/CalendarView";
 import PostModal from "@/components/common/PostModal";
+import { Database } from "@/lib/database.types";
+
+type PostRow = Database["public"]["Tables"]["posts"]["Row"];
 
 export default function ClientCalendarPage({
   params,
@@ -13,12 +15,12 @@ export default function ClientCalendarPage({
   params: { clientId: string };
 }) {
   const { posts } = useAppStore();
-  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [selectedPost, setSelectedPost] = useState<PostRow | null>(null);
   const [isModalOpen, setModalOpen] = useState(false);
 
-  const clientPosts = posts.filter((p) => p.clientId === params.clientId);
+  const clientPosts = posts.filter((p) => p.client_id === params.clientId);
 
-  const handlePostClick = (post: Post) => {
+  const handlePostClick = (post: PostRow) => {
     setSelectedPost(post);
     setModalOpen(true);
   };

@@ -1,15 +1,18 @@
 import dayjs, { Dayjs } from "dayjs";
-import { Post, Client } from "@/lib/types";
+import { Client, Post, PostMediaType } from "@/lib/types";
 import Modal from "../../components/common/Modal";
 import MediaTypeTag from "../../components/common/MediaTypeTag";
+import { Database } from "@/lib/database.types";
+
+type PostRow = Database["public"]["Tables"]["posts"]["Row"];
 
 interface DayPostsModalProps {
   isOpen: boolean;
   onClose: () => void;
   date: Dayjs | null;
-  posts: Post[];
+  posts: PostRow[];
   clients: Client[];
-  onPostSelect: (post: Post) => void;
+  onPostSelect: (post: PostRow) => void;
 }
 
 export default function DayPostsModal({
@@ -23,13 +26,13 @@ export default function DayPostsModal({
   if (!date) return null;
 
   const postsByClient = posts.reduce((acc, post) => {
-    const clientId = post.clientId || "unknown";
-    if (!acc[clientId]) {
-      acc[clientId] = [];
+    const clientId = post.client_id || "unknown";
+    if (!(acc as any)[clientId]) {
+      (acc as any)[clientId] = [];
     }
-    acc[clientId].push(post);
+    (acc as any)[clientId].push(post);
     return acc;
-  }, {} as Record<string, Post[]>);
+  }, {} as Record<string, PostRow[]>);
 
   const placeholderUrl = (text: string) =>
     `https://placehold.co/100x100/1f2937/9ca3af?text=${text}`;
@@ -68,7 +71,7 @@ export default function DayPostsModal({
                     className="flex items-center gap-4 p-2 rounded-lg hover:bg-gray-700 cursor-pointer"
                   >
                     <img
-                      src={post.thumbnailUrl || post.mediaUrl}
+                      src={post.thumbnail_url || post.media_url}
                       alt="thumbnail"
                       className="w-12 h-12 object-cover rounded-md flex-shrink-0 bg-gray-900"
                       onError={(e) => {
@@ -80,11 +83,11 @@ export default function DayPostsModal({
                     <div className="overflow-hidden">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-gray-400">
-                          {dayjs(post.scheduledAt).format("HH:mm")}
+                          {dayjs(post.scheduled_at).format("HH:mm")}
                         </span>
                       </div>
                       <MediaTypeTag
-                        mediaType={post.mediaType}
+                        mediaType={post.media_type as PostMediaType}
                         className="mt-1"
                       />
                     </div>

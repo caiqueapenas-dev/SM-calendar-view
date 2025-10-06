@@ -2,31 +2,33 @@
 
 import { useState } from "react";
 import { useAppStore } from "@/store/appStore";
-import { Post } from "@/lib/types";
 import CalendarView from "@/components/calendar/CalendarView";
 import PostModal from "@/components/common/PostModal";
 import DayPostsModal from "./DayPostsModal";
 import dayjs, { Dayjs } from "dayjs";
 import { CirclePlus as PlusCircle } from "lucide-react";
 import CreatePostModal from "./CreatePostModal";
+import { Database } from "@/lib/database.types";
+
+type PostRow = Database["public"]["Tables"]["posts"]["Row"];
 
 export default function AdminDashboardPage() {
   const { clients, posts } = useAppStore();
 
-  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [selectedPost, setSelectedPost] = useState<PostRow | null>(null);
   const [isPostModalOpen, setPostModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
   const [isDayModalOpen, setDayModalOpen] = useState(false);
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
 
-  const handlePostClick = (post: Post) => {
+  const handlePostClick = (post: PostRow) => {
     setSelectedPost(post);
     setPostModalOpen(true);
   };
 
   const handleDayClick = (date: Dayjs) => {
     const postsOnDay = posts.filter((p) =>
-      dayjs(p.scheduledAt).isSame(date, "day")
+      dayjs(p.scheduled_at).isSame(date, "day")
     );
     if (postsOnDay.length > 0) {
       setSelectedDate(date);
@@ -66,7 +68,7 @@ export default function AdminDashboardPage() {
         date={selectedDate}
         posts={posts.filter(
           (p) =>
-            selectedDate && dayjs(p.scheduledAt).isSame(selectedDate, "day")
+            selectedDate && dayjs(p.scheduled_at).isSame(selectedDate, "day")
         )}
         clients={clients}
         onPostSelect={(post) => {

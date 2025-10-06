@@ -3,7 +3,10 @@
 import Modal from "../../components/common/Modal";
 import { useState } from "react";
 import { useAppStore } from "@/store/appStore";
-import { Post, PostMediaType } from "@/lib/types";
+import { PostMediaType } from "@/lib/types";
+import { Database } from "@/lib/database.types";
+
+type PostInsert = Database["public"]["Tables"]["posts"]["Insert"];
 
 interface CreatePostModalProps {
   isOpen: boolean;
@@ -36,14 +39,17 @@ export default function CreatePostModal({
       return;
     }
 
-    addPost({
-      clientId,
-      caption,
-      mediaUrl,
-      scheduledAt: new Date(scheduledAt).toISOString(),
-      mediaType,
-      platforms,
-    });
+    const postData: Omit<PostInsert, "status" | "created_by" | "edit_history"> =
+      {
+        client_id: clientId,
+        caption,
+        media_url: mediaUrl,
+        scheduled_at: new Date(scheduledAt).toISOString(),
+        media_type: mediaType,
+        platforms,
+      };
+
+    addPost(postData);
     onClose();
     // Reset form
     setCaption("");

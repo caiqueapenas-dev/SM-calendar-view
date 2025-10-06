@@ -1,14 +1,17 @@
-import { Post, Client } from "@/lib/types";
+import { Client, PostMediaType } from "@/lib/types";
 import { Dayjs } from "dayjs";
 import MediaTypeTag from "../common/MediaTypeTag";
 import dayjs from "dayjs";
+import { Database } from "@/lib/database.types";
+
+type PostRow = Database["public"]["Tables"]["posts"]["Row"];
 
 interface CalendarDayProps {
   date: Dayjs;
-  posts: Post[];
+  posts: PostRow[];
   isCurrentMonth: boolean;
   onDayClick: () => void;
-  onPostClick: (post: Post) => void;
+  onPostClick: (post: PostRow) => void;
   isAdminView: boolean;
   clients: Client[];
 }
@@ -25,13 +28,13 @@ export default function CalendarDay({
   const isToday = date.isSame(dayjs(), "day");
 
   const postsByClient = posts.reduce((acc, post) => {
-    const clientId = post.clientId || "unknown";
-    if (!acc[clientId]) {
-      acc[clientId] = [];
+    const clientId = post.client_id || "unknown";
+    if (!(acc as any)[clientId]) {
+      (acc as any)[clientId] = [];
     }
-    acc[clientId].push(post);
+    (acc as any)[clientId].push(post);
     return acc;
-  }, {} as Record<string, Post[]>);
+  }, {} as Record<string, PostRow[]>);
 
   return (
     <div
@@ -94,7 +97,7 @@ export default function CalendarDay({
               }}
               className="p-1 rounded hover:bg-gray-700 cursor-pointer"
             >
-              <MediaTypeTag mediaType={post.mediaType} />
+              <MediaTypeTag mediaType={post.media_type as PostMediaType} />
             </div>
           ))}
         </div>

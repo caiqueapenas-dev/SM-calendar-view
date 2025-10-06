@@ -1,13 +1,16 @@
-import { Post } from "@/lib/types";
 import dayjs from "dayjs";
 import "dayjs/locale/pt-br";
 import { Instagram, Facebook } from "lucide-react";
 import MediaTypeTag from "./MediaTypeTag";
+import { Database } from "@/lib/database.types";
+import { PostMediaType } from "@/lib/types"; // Adicionada esta importação
 
 dayjs.locale("pt-br");
 
+type PostRow = Database["public"]["Tables"]["posts"]["Row"];
+
 interface PostCardProps {
-  post: Post;
+  post: PostRow;
   onClick: () => void;
   isAdminView?: boolean;
 }
@@ -32,11 +35,14 @@ export default function PostCard({
   onClick,
   isAdminView = false,
 }: PostCardProps) {
-  const formattedDate = dayjs(post.scheduledAt).format("DD/MM/YYYY [às] HH:mm");
-  const statusInfo = statusStyles[post.status];
+  const formattedDate = dayjs(post.scheduled_at).format(
+    "DD/MM/YYYY [às] HH:mm"
+  );
+  const statusInfo = statusStyles[post.status as keyof typeof statusStyles];
 
   const getPlatformIcons = () => {
-    return (post.platforms || []).map((platform) => {
+    const platforms = Array.isArray(post.platforms) ? post.platforms : [];
+    return platforms.map((platform) => {
       if (platform === "instagram") {
         return (
           <Instagram key="instagram" size={16} className="text-gray-400" />
@@ -56,7 +62,7 @@ export default function PostCard({
     >
       <div className="relative w-full h-48">
         <img
-          src={post.mediaUrl || placeholderUrl}
+          src={post.media_url || placeholderUrl}
           alt="Post media"
           className="w-full h-full object-cover"
           onError={(e) => {
@@ -77,7 +83,9 @@ export default function PostCard({
         <p className="text-gray-400 text-xs mb-2 flex items-center">
           <span
             className={`w-2 h-2 rounded-full mr-2 ${
-              statusStyles[post.status]?.classes.split(" ")[0]
+              statusStyles[
+                post.status as keyof typeof statusStyles
+              ]?.classes.split(" ")[0]
             }`}
           ></span>
           {formattedDate}
@@ -89,7 +97,7 @@ export default function PostCard({
         </div>
         <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-700/50">
           <div className="flex items-center gap-2">{getPlatformIcons()}</div>
-          <MediaTypeTag mediaType={post.mediaType} />
+          <MediaTypeTag mediaType={post.media_type as PostMediaType} />
         </div>
       </div>
     </div>

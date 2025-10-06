@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Post, PostStatus, PostMediaType } from "@/lib/types";
+import { PostStatus, PostMediaType } from "@/lib/types";
 import { useAppStore } from "@/store/appStore";
 import dayjs from "dayjs";
 import "dayjs/locale/pt-br";
@@ -17,13 +17,16 @@ import {
   FileText,
 } from "lucide-react";
 import * as unidiff from "unidiff";
+import { Database } from "@/lib/database.types";
 
 dayjs.locale("pt-br");
+
+type PostRow = Database["public"]["Tables"]["posts"]["Row"];
 
 interface PostModalProps {
   isOpen: boolean;
   onClose: () => void;
-  post: Post | null;
+  post: PostRow | null;
 }
 
 const DiffViewer = ({
@@ -57,11 +60,10 @@ const DiffViewer = ({
 };
 
 export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
-  const { userType, updatePost, updatePostStatus } = useAppStore();
+  const { userRole, updatePost, updatePostStatus } = useAppStore();
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState("review");
 
-  // State for editable fields
   const [editedCaption, setEditedCaption] = useState("");
   const [editedMediaUrl, setEditedMediaUrl] = useState("");
   const [editedMediaType, setEditedMediaType] = useState<PostMediaType>("FOTO");
@@ -73,10 +75,12 @@ export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
   useEffect(() => {
     if (post) {
       setEditedCaption(post.caption || "");
-      setEditedMediaUrl(post.mediaUrl || "");
-      setEditedMediaType(post.mediaType || "FOTO");
-      setEditedPlatforms(post.platforms || []);
-      setEditedScheduledAt(post.scheduledAt || "");
+      setEditedMediaUrl(post.media_url || "");
+      setEditedMediaType((post.media_type as PostMediaType) || "FOTO");
+      setEditedPlatforms(
+        (Array.isArray(post.platforms) ? post.platforms : []) as any
+      );
+      setEditedScheduledAt(post.scheduled_at || "");
       setIsEditing(false);
       setActiveTab("review");
     }
@@ -85,25 +89,40 @@ export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
   if (!post) return null;
 
   const handleSave = () => {
-    if (!post || !userType) return;
-    if (userType === "client") {
-      updatePost(post.id, { caption: editedCaption });
-    } else if (userType === "admin") {
-      updatePost(post.id, {
-        caption: editedCaption,
-        mediaUrl: editedMediaUrl,
-        mediaType: editedMediaType,
+    if (!post || !userRole) return;
+
+    let updates: Partial<PostRow> = {
+      caption: editedCaption,
+    };
+
+    if (userRole === "admin") {
+      updates = {
+        ...updates,
+        media_url: editedMediaUrl,
+        media_type: editedMediaType,
         platforms: editedPlatforms,
-        scheduledAt: new Date(editedScheduledAt).toISOString(),
-      });
+        scheduled_at: new Date(editedScheduledAt).toISOString(),
+      };
     }
+
+    updatePost(post.id, updates);
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    if (!post) return;
+    setEditedCaption(post.caption || "");
+    setEditedMediaUrl(post.media_url || "");
+    setEditedMediaType(post.media_type as PostMediaType);
+    setEditedPlatforms(
+      Array.isArray(post.platforms) ? (post.platforms as any) : []
+    );
+    setEditedScheduledAt(post.scheduled_at);
     setIsEditing(false);
   };
 
   const handleApproval = (status: PostStatus) => {
-    if (post) {
-      updatePostStatus(post.id, status);
-    }
+    if (post) updatePostStatus(post.id, status);
   };
 
   const handlePlatformChange = (platform: "instagram" | "facebook") => {
@@ -114,24 +133,24 @@ export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
     );
   };
 
-  const formattedDate = dayjs(post.scheduledAt).format(
+  const formattedDate = dayjs(post.scheduled_at).format(
     "DD [de] MMMM [de] YYYY [às] HH:mm"
   );
-  const dayOfWeek = dayjs(post.scheduledAt).format("dddd");
+  const dayOfWeek = dayjs(post.scheduled_at).format("dddd");
 
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
       <div className="flex flex-col max-h-[90vh]">
-        <div className="relative flex-shrink-0 flex items-center justify-center bg-black rounded-t-lg overflow-hidden h-[40vh]">
+        <div className="relative w-full h-[40vh] flex-shrink-0 bg-black rounded-t-lg">
           <img
             src={
-              isEditing && userType === "admin"
+              (isEditing && userRole === "admin"
                 ? editedMediaUrl
-                : post.mediaUrl ||
-                  "https://placehold.co/800x600/1f2937/9ca3af?text=Sem+Imagem"
+                : post.media_url) ||
+              "https://placehold.co/800x600/1f2937/9ca3af?text=Sem+Imagem"
             }
             alt="Post media"
-            className="w-auto h-auto max-w-full max-h-full object-contain"
+            className="w-full h-full object-contain"
           />
         </div>
 
@@ -166,21 +185,21 @@ export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
               <div className="bg-blue-900/50 text-blue-300 p-2 rounded-md text-center mb-4 text-sm">
                 Agendado para: {dayOfWeek}, {formattedDate}
               </div>
-
               <div className="flex items-center justify-between gap-2 mb-4">
                 <div className="flex items-center gap-2">
-                  {post.platforms.includes("instagram") && (
-                    <Instagram size={18} />
-                  )}
-                  {post.platforms.includes("facebook") && (
-                    <Facebook size={18} />
-                  )}
-                  <MediaTypeTag mediaType={post.mediaType} />
+                  {Array.isArray(post.platforms) &&
+                    post.platforms.includes("instagram") && (
+                      <Instagram size={18} />
+                    )}
+                  {Array.isArray(post.platforms) &&
+                    post.platforms.includes("facebook") && (
+                      <Facebook size={18} />
+                    )}
+                  <MediaTypeTag mediaType={post.media_type as PostMediaType} />
                 </div>
-
                 {!isEditing && (
                   <div className="flex items-center gap-3">
-                    {userType === "client" && (
+                    {userRole === "client" && (
                       <>
                         <button
                           onClick={() => setIsEditing(true)}
@@ -207,7 +226,7 @@ export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
                         </button>
                       </>
                     )}
-                    {userType === "admin" && (
+                    {userRole === "admin" && (
                       <button
                         onClick={() => setIsEditing(true)}
                         className="p-2 rounded-full bg-gray-600 text-white hover:bg-gray-500"
@@ -220,9 +239,15 @@ export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
                 )}
               </div>
 
-              {isEditing ? (
+              {!isEditing && (
+                <p className="text-white whitespace-pre-wrap">
+                  {post.caption || "Sem legenda."}
+                </p>
+              )}
+
+              {isEditing && (
                 <div className="space-y-4">
-                  {userType === "admin" && (
+                  {userRole === "admin" && (
                     <>
                       <div>
                         <label className="text-sm font-medium text-gray-300">
@@ -293,7 +318,6 @@ export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
                       </div>
                     </>
                   )}
-
                   <div>
                     <label className="text-sm font-medium text-gray-300">
                       Legenda
@@ -315,10 +339,9 @@ export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
                       />
                     </div>
                   </div>
-
-                  <div className="flex justify-end gap-2">
+                  <div className="flex justify-end gap-2 mt-4">
                     <button
-                      onClick={() => setIsEditing(false)}
+                      onClick={handleCancelEdit}
                       className="flex items-center gap-1 bg-gray-600 hover:bg-gray-500 text-white py-1 px-3 rounded-md"
                     >
                       <X size={16} /> Cancelar
@@ -331,21 +354,17 @@ export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
                     </button>
                   </div>
                 </div>
-              ) : (
-                <p className="text-white whitespace-pre-wrap">
-                  {post.caption || "Sem legenda."}
-                </p>
               )}
             </>
           )}
-
           {activeTab === "log" && (
             <div className="space-y-4">
-              {post.editHistory && post.editHistory.length > 0 ? (
-                post.editHistory
+              {Array.isArray(post.edit_history) &&
+              post.edit_history.length > 0 ? (
+                post.edit_history
                   .slice()
                   .reverse()
-                  .map((edit, index) => (
+                  .map((edit: any, index) => (
                     <div key={index} className="text-sm">
                       <p className="text-gray-500 mb-1 capitalize">
                         Alterado por {edit.author} em:{" "}

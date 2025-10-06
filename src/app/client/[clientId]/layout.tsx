@@ -1,9 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAppStore } from "@/store/appStore";
-import { LayoutDashboard, Calendar, LogOut } from "lucide-react";
+import { LayoutDashboard, Calendar, LogOut, Loader } from "lucide-react";
 
 export default function ClientLayout({
   children,
@@ -14,11 +15,18 @@ export default function ClientLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { clients, logout } = useAppStore();
+  const { clients, logout, fetchPosts, listenToPostChanges, isLoading } =
+    useAppStore();
   const client = clients.find((c) => c.id === params.clientId);
 
-  const handleLogout = () => {
-    logout();
+  useEffect(() => {
+    fetchPosts();
+    const unsubscribe = listenToPostChanges();
+    return () => unsubscribe();
+  }, [fetchPosts, listenToPostChanges]);
+
+  const handleLogout = async () => {
+    await logout();
     router.push("/");
   };
 
@@ -69,7 +77,15 @@ export default function ClientLayout({
         ))}
       </div>
 
-      <main>{children}</main>
+      <main>
+        {isLoading ? (
+          <div className="flex justify-center items-center h-64">
+            <Loader className="animate-spin text-indigo-500" size={48} />
+          </div>
+        ) : (
+          children
+        )}
+      </main>
     </div>
   );
 }
