@@ -141,9 +141,7 @@ export default function CreatePostModal({
       "upload_preset",
       process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!
     );
-
     const resourceType = file.type.startsWith("video") ? "video" : "image";
-
     const response = await fetch(
       `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`,
       {
@@ -205,6 +203,7 @@ export default function CreatePostModal({
       setIsSubmitting(false);
     }
   };
+
   const isCarousel = mediaType === "CARROSSEL";
 
   return (
@@ -345,7 +344,7 @@ export default function CreatePostModal({
 
           <div className="flex justify-end gap-3 pt-4">
             <button
-              onClick={onClose}
+              onClick={handleClose}
               disabled={isSubmitting}
               className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg disabled:opacity-50"
             >
