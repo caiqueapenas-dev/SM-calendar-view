@@ -24,14 +24,17 @@ export default function CalendarHeader({
 
   const getHeaderText = () => {
     if (viewMode === "month") {
-      return currentDate.format("MMMM [de] YYYY");
+      // Use only first 3 letters of month name
+      const monthName = currentDate.format("MMMM").substring(0, 3);
+      return `${monthName} ${currentDate.format("YYYY")}`;
     }
     const startOfWeek = currentDate.startOf("week");
     const endOfWeek = currentDate.endOf("week");
     if (startOfWeek.month() !== endOfWeek.month()) {
       return `${startOfWeek.format("MMM")} / ${endOfWeek.format("MMM YYYY")}`;
     }
-    return currentDate.format("MMMM [de] YYYY");
+    const monthName = currentDate.format("MMMM").substring(0, 3);
+    return `${monthName} ${currentDate.format("YYYY")}`;
   };
 
   return (

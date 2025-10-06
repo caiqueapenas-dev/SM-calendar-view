@@ -4,10 +4,9 @@ import { useState, useEffect } from "react";
 import { useAppStore } from "@/store/appStore";
 import { Database } from "@/lib/database.types";
 import { supabase } from "@/lib/supabaseClient";
-import { Send, MessageCircle } from "lucide-react";
+import { Send, MessageCircle, Trash2, Edit2, X, Save } from "lucide-react";
 import dayjs from "dayjs";
 import "dayjs/locale/pt-br";
-import ImageUploader from "../common/ImageUploader";
 
 dayjs.locale("pt-br");
 
@@ -36,7 +35,8 @@ export default function InsightsPanel({
   const [insights, setInsights] = useState<InsightRow[]>([]);
   const [newInsight, setNewInsight] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [userPhotos, setUserPhotos] = useState<Record<string, string>>({});
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
 
   useEffect(() => {
     if (isOpen && clientId) {
@@ -45,17 +45,15 @@ export default function InsightsPanel({
   }, [isOpen, clientId]);
 
   const getUserPhoto = (authorId: string, authorRole: string) => {
-    if (userPhotos[authorId]) {
-      return userPhotos[authorId];
-    }
-    
     if (authorRole === "client") {
       const client = clients.find(c => c.client_id === authorId);
       return client?.profile_picture_url || `https://ui-avatars.com/api/?name=${client?.name.substring(0, 2)}&background=random`;
     }
-    
-    // For admin, use a default admin avatar or stored photo
     return `https://ui-avatars.com/api/?name=A&background=indigo&color=white`;
+  };
+
+  const canEditOrDelete = (insight: InsightRow) => {
+    return userRole === "admin" || (userRole === "client" && insight.author_id === user?.id);
   };
 
   const fetchInsights = async () => {
@@ -94,10 +92,83 @@ export default function InsightsPanel({
 
       if (error) throw error;
 
+      // Create notification for admin when client comments
+      if (userRole === "client") {
+        // Get all admin users to notify them
+        const { data: adminUsers } = await supabase
+          .from("users")
+          .select("id")
+          .eq("role", "admin");
+
+        if (adminUsers && adminUsers.length > 0) {
+          // Create notification for each admin
+          const notifications = adminUsers.map((admin) => ({
+            client_id: clientId,
+            message: "Novo insight adicionado pelo cliente",
+            type: "insight" as const,
+            is_read: false,
+            user_id: admin.id,
+            urgency: "low" as const,
+          }));
+
+          await supabase.from("notifications").insert(notifications);
+        }
+      }
+
       setInsights([data, ...insights]);
       setNewInsight("");
     } catch (error) {
       console.error("Error creating insight:", error);
+    }
+  };
+
+  const handleDeleteInsight = async (insightId: string) => {
+    if (!window.confirm("Deseja realmente excluir este insight?")) return;
+
+    try {
+      const { error } = await supabase
+        .from("insights")
+        .delete()
+        .eq("id", insightId);
+
+      if (error) throw error;
+
+      setInsights(insights.filter((i) => i.id !== insightId));
+    } catch (error) {
+      console.error("Error deleting insight:", error);
+    }
+  };
+
+  const handleStartEdit = (insight: InsightRow) => {
+    setEditingId(insight.id);
+    setEditContent(insight.content);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditContent("");
+  };
+
+  const handleSaveEdit = async (insightId: string) => {
+    if (!editContent.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from("insights")
+        .update({ content: editContent.trim(), updated_at: new Date().toISOString() })
+        .eq("id", insightId);
+
+      if (error) throw error;
+
+      setInsights(
+        insights.map((i) =>
+          i.id === insightId ? { ...i, content: editContent.trim() } : i
+        )
+      );
+      setEditingId(null);
+      setEditContent("");
+    } catch (error) {
+      console.error("Error updating insight:", error);
     }
   };
 
@@ -111,29 +182,12 @@ export default function InsightsPanel({
             <MessageCircle size={24} />
             Insights & Ideias
           </h2>
-          <div className="flex items-center gap-3">
-            {userRole === "admin" && (
-              <div className="text-sm text-gray-400">
-                <ImageUploader
-                  onFilesAdded={(files) => {
-                    if (files.length > 0 && user) {
-                      // Here you would upload the photo and update the user's profile
-                      // For now, we'll just show a placeholder
-                      console.log("Upload admin photo:", files[0]);
-                    }
-                  }}
-                  allowMultiple={false}
-                  mediaCount={0}
-                />
-              </div>
-            )}
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-white"
-            >
-              ✕
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white"
+          >
+            ✕
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
@@ -165,17 +219,68 @@ export default function InsightsPanel({
                       className="w-8 h-8 rounded-full object-cover"
                     />
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-sm font-medium text-gray-300">
-                          {insight.author_role === "admin" ? "Admin" : "Cliente"}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {dayjs(insight.created_at).format("DD/MM/YYYY HH:mm")}
-                        </span>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-gray-300">
+                            {insight.author_role === "admin" ? "Admin" : "Cliente"}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {dayjs(insight.created_at).format("DD/MM/YYYY HH:mm")}
+                          </span>
+                        </div>
+                        {canEditOrDelete(insight) && (
+                          <div className="flex gap-2">
+                            {editingId !== insight.id && (
+                              <>
+                                <button
+                                  onClick={() => handleStartEdit(insight)}
+                                  className="text-gray-400 hover:text-indigo-400 transition-colors"
+                                  title="Editar"
+                                >
+                                  <Edit2 size={16} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteInsight(insight.id)}
+                                  className="text-gray-400 hover:text-red-400 transition-colors"
+                                  title="Excluir"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      <p className="text-gray-200 whitespace-pre-wrap">
-                        {insight.content}
-                      </p>
+                      {editingId === insight.id ? (
+                        <div className="space-y-2">
+                          <textarea
+                            value={editContent}
+                            onChange={(e) => setEditContent(e.target.value)}
+                            className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white resize-none"
+                            rows={3}
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleSaveEdit(insight.id)}
+                              className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-sm"
+                            >
+                              <Save size={14} />
+                              Salvar
+                            </button>
+                            <button
+                              onClick={handleCancelEdit}
+                              className="flex items-center gap-1 bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded text-sm"
+                            >
+                              <X size={14} />
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-gray-200 whitespace-pre-wrap">
+                          {insight.content}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

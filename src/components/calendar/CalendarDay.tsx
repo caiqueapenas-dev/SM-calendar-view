@@ -125,32 +125,37 @@ export default function CalendarDay({
       </span>
 
       <div className="flex flex-wrap gap-1">
-        {posts.slice(0, 2).map((post) =>
-          isAdminView ? (
-            <DraggablePost key={post.id} post={post} clients={clients} />
-          ) : (
+        {isAdminView ? (
+          <>
+            {posts.slice(0, 2).map((post) => (
+              <DraggablePost key={post.id} post={post} clients={clients} />
+            ))}
+            {posts.length > 2 && (
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDayClick();
+                }}
+                className="px-2 py-1 bg-gray-600 text-xs text-gray-300 rounded hover:bg-gray-500 cursor-pointer"
+              >
+                ver mais {posts.length - 2}
+              </div>
+            )}
+          </>
+        ) : (
+          /* Client view - show single dot/badge for posts */
+          posts.length > 0 && (
             <div
-              key={post.id}
               onClick={(e) => {
                 e.stopPropagation();
-                onPostClick(post);
+                onDayClick();
               }}
-              className="p-1 rounded hover:bg-gray-700 cursor-pointer"
+              className="flex items-center gap-1 cursor-pointer"
             >
-              <MediaTypeTag mediaType={post.media_type as PostMediaType} />
+              <div className="w-3 h-3 rounded-full bg-indigo-500 animate-pulse"></div>
+              <span className="text-xs text-gray-400">{posts.length}</span>
             </div>
           )
-        )}
-        {posts.length > 2 && (
-          <div
-            onClick={(e) => {
-              e.stopPropagation();
-              onDayClick();
-            }}
-            className="px-2 py-1 bg-gray-600 text-xs text-gray-300 rounded hover:bg-gray-500 cursor-pointer"
-          >
-            ver mais {posts.length - 2}
-          </div>
         )}
         
         {/* Special dates badges */}

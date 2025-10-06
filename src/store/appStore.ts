@@ -230,13 +230,13 @@ export const useAppStore = create<AppState>()(
       if (notifications) {
         set({ notifications: notifications.map(n => ({
           id: n.id,
-          type: n.type as "approval_reminder" | "client_edit",
+          type: n.type as "approval_reminder" | "client_edit" | "insight",
           clientId: n.client_id,
-          postId: n.post_id,
+          postId: n.post_id || "",
           message: n.message,
           urgency: n.urgency as "low" | "medium" | "high",
           createdAt: n.created_at,
-          read: n.read,
+          read: n.is_read,
         })) });
       }
     },
@@ -248,7 +248,7 @@ export const useAppStore = create<AppState>()(
       // Update in database
       const { error } = await supabase
         .from("notifications")
-        .update({ read: true })
+        .update({ is_read: true })
         .eq("id", notificationId)
         .eq("user_id", user.id);
 

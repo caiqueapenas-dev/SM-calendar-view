@@ -81,6 +81,8 @@ export default function PostModal({
 
   const [carouselImages, setCarouselImages] = useState<string[]>([]);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
   const [editedCaption, setEditedCaption] = useState("");
   const [editedMediaUrl, setEditedMediaUrl] = useState("");
@@ -212,6 +214,31 @@ export default function PostModal({
     setCurrentSlide(
       (prev) => (prev - 1 + carouselImages.length) % carouselImages.length
     );
+
+  // Minimum swipe distance (in px)
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+    if (isLeftSwipe) {
+      nextSlide();
+    } else if (isRightSwipe) {
+      prevSlide();
+    }
+  };
+
   if (!post) return null; // A guarda principal que já existia
 
   const formattedDate = dayjs(post.scheduled_at).format(
@@ -221,13 +248,18 @@ export default function PostModal({
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose}>
-      <div className="flex flex-col max-h-[90vh]">
-        <div className="relative w-full h-[40vh] flex-shrink-0 bg-black rounded-t-lg group">
+      <div className="flex flex-col max-h-[90vh] h-[90vh]">
+        <div 
+          className="relative w-full h-[40vh] flex-shrink-0 bg-black rounded-t-lg group"
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+        >
           {carouselImages.length > 0 ? (
             <img
               src={carouselImages[currentSlide]}
               alt={`Slide ${currentSlide + 1}`}
-              className="w-full h-full object-contain"
+              className="w-full h-full object-contain select-none"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-gray-500">
@@ -238,13 +270,13 @@ export default function PostModal({
             <>
               <button
                 onClick={prevSlide}
-                className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 p-1 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 p-1 rounded-full text-white opacity-0 md:group-hover:opacity-100 transition-opacity md:opacity-0 opacity-30"
               >
                 <ChevronLeft size={24} />
               </button>
               <button
                 onClick={nextSlide}
-                className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 p-1 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 p-1 rounded-full text-white opacity-0 md:group-hover:opacity-100 transition-opacity md:opacity-0 opacity-30"
               >
                 <ChevronRight size={24} />
               </button>
@@ -287,13 +319,13 @@ export default function PostModal({
           </nav>
         </div>
 
-        <div className="p-6 flex-grow overflow-y-auto">
+        <div className="p-6 flex-grow overflow-y-auto overscroll-contain">
           {activeTab === "review" && (
             <>
               <div className="bg-blue-900/50 text-blue-300 p-2 rounded-md text-center mb-4 text-sm">
                 Agendado para: {dayOfWeek}, {formattedDate}
               </div>
-              <div className="flex items-center justify-between gap-2 mb-4">
+              <div className="flex items-center gap-2 mb-4">
                 <div className="flex items-center gap-2">
                   {Array.isArray(post.platforms) &&
                     post.platforms.includes("instagram") && (
@@ -305,60 +337,14 @@ export default function PostModal({
                     )}
                   <MediaTypeTag mediaType={post.media_type as PostMediaType} />
                 </div>
-                {!isEditing && (
-                  <div className="flex items-center gap-3">
-                    {isSaving ? (
-                      <Loader className="animate-spin" />
-                    ) : (
-                      <>
-                        {userRole === "client" && (
-                          <>
-                            <button
-                              onClick={() => setIsEditing(true)}
-                              className="p-2 rounded-full bg-gradient-to-r from-indigo-500 via-pink-500 to-yellow-500 text-white hover:opacity-90 transition-opacity"
-                              title="Editar Legenda"
-                            >
-                              <Pen size={18} />
-                            </button>
-                            <button
-                              onClick={() => handleApproval("agendado")}
-                              className="p-2 rounded-full bg-green-500 text-white hover:bg-green-600 disabled:bg-gray-600"
-                              title="Aprovar"
-                              disabled={post.status === "agendado"}
-                            >
-                              <ThumbsUp size={18} />
-                            </button>
-                            <button
-                              onClick={() => handleApproval("negado")}
-                              className="p-2 rounded-full bg-red-500 text-white hover:bg-red-600 disabled:bg-gray-600"
-                              title="Reprovar"
-                              disabled={post.status === "negado"}
-                            >
-                              <ThumbsDown size={18} />
-                            </button>
-                          </>
-                        )}
-                        {userRole === "admin" && (
-                          <button
-                            onClick={() => setIsEditing(true)}
-                            className="p-2 rounded-full bg-gray-600 text-white hover:bg-gray-500"
-                            title="Editar Post"
-                          >
-                            <Pen size={18} />
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )}
               </div>
 
               {!isEditing ? (
-                <p className="text-white whitespace-pre-wrap">
+                <p className="text-white whitespace-pre-wrap mb-20">
                   {post.caption || "Sem legenda."}
                 </p>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-4 mb-20">
                   {userRole === "admin" && (
                     <>{/* Campos de edição do Admin */}</>
                   )}
@@ -383,34 +369,12 @@ export default function PostModal({
                       />
                     </div>
                   </div>
-                  <div className="flex justify-end gap-2 mt-4">
-                    <button
-                      onClick={handleCancelEdit}
-                      disabled={isSaving}
-                      className="flex items-center gap-1 bg-gray-600 hover:bg-gray-500 text-white py-1 px-3 rounded-md"
-                    >
-                      <X size={16} /> Cancelar
-                    </button>
-                    <button
-                      onClick={handleSave}
-                      disabled={isSaving}
-                      className="flex items-center justify-center gap-1 bg-indigo-600 hover:bg-indigo-500 text-white py-1 px-3 rounded-md w-28"
-                    >
-                      {isSaving ? (
-                        <Loader className="animate-spin" />
-                      ) : (
-                        <>
-                          <Save size={16} /> Salvar
-                        </>
-                      )}
-                    </button>
-                  </div>
                 </div>
               )}
             </>
           )}
           {activeTab === "log" && (
-            <div className="space-y-4">
+            <div className="space-y-4 pb-20 max-h-full overflow-y-auto">
               {Array.isArray(post.edit_history) &&
               post.edit_history.length > 0 ? (
                 post.edit_history
@@ -434,6 +398,76 @@ export default function PostModal({
             </div>
           )}
         </div>
+
+        {/* Fixed action buttons at bottom */}
+        {!isEditing && userRole === "client" && (
+          <div className="border-t border-gray-700 p-4 bg-gray-800 flex justify-center gap-3">
+            {isSaving ? (
+              <Loader className="animate-spin" />
+            ) : (
+              <>
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="p-3 rounded-full bg-gradient-to-r from-indigo-500 via-pink-500 to-yellow-500 text-white hover:opacity-90 transition-opacity"
+                  title="Editar Legenda"
+                >
+                  <Pen size={20} />
+                </button>
+                <button
+                  onClick={() => handleApproval("agendado")}
+                  className="p-3 rounded-full bg-green-500 text-white hover:bg-green-600 disabled:bg-gray-600"
+                  title="Aprovar"
+                  disabled={post.status === "agendado"}
+                >
+                  <ThumbsUp size={20} />
+                </button>
+                <button
+                  onClick={() => handleApproval("negado")}
+                  className="p-3 rounded-full bg-red-500 text-white hover:bg-red-600 disabled:bg-gray-600"
+                  title="Reprovar"
+                  disabled={post.status === "negado"}
+                >
+                  <ThumbsDown size={20} />
+                </button>
+              </>
+            )}
+          </div>
+        )}
+        {!isEditing && userRole === "admin" && (
+          <div className="border-t border-gray-700 p-4 bg-gray-800 flex justify-center gap-3">
+            <button
+              onClick={() => setIsEditing(true)}
+              className="p-3 rounded-full bg-gray-600 text-white hover:bg-gray-500"
+              title="Editar Post"
+            >
+              <Pen size={20} />
+            </button>
+          </div>
+        )}
+        {isEditing && (
+          <div className="border-t border-gray-700 p-4 bg-gray-800 flex justify-center gap-3">
+            <button
+              onClick={handleCancelEdit}
+              disabled={isSaving}
+              className="flex items-center gap-2 bg-gray-600 hover:bg-gray-500 text-white py-2 px-4 rounded-md"
+            >
+              <X size={18} /> Cancelar
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white py-2 px-4 rounded-md min-w-[120px]"
+            >
+              {isSaving ? (
+                <Loader className="animate-spin" />
+              ) : (
+                <>
+                  <Save size={18} /> Salvar
+                </>
+              )}
+            </button>
+          </div>
+        )}
       </div>
     </Modal>
   );

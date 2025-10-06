@@ -1,0 +1,300 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useAppStore } from "@/store/appStore";
+import { supabase } from "@/lib/supabaseClient";
+import { Send, MessageCircle, Trash2, Edit2, X, Save } from "lucide-react";
+import dayjs from "dayjs";
+import "dayjs/locale/pt-br";
+
+dayjs.locale("pt-br");
+
+type InsightRow = {
+  id: string;
+  client_id: string;
+  content: string;
+  author_id: string;
+  author_role: "admin" | "client";
+  created_at: string;
+  updated_at: string;
+};
+
+export default function ClientInsightsPage({
+  params,
+}: {
+  params: { clientId: string };
+}) {
+  const { user, userRole, clients } = useAppStore();
+  const [insights, setInsights] = useState<InsightRow[]>([]);
+  const [newInsight, setNewInsight] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
+
+  useEffect(() => {
+    fetchInsights();
+  }, [params.clientId]);
+
+  const fetchInsights = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("insights")
+        .select("*")
+        .eq("client_id", params.clientId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setInsights(data || []);
+    } catch (error) {
+      console.error("Error fetching insights:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSubmitInsight = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newInsight.trim() || !user || !userRole) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("insights")
+        .insert({
+          client_id: params.clientId,
+          content: newInsight.trim(),
+          author_id: user.id,
+          author_role: userRole,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Create notification for admin when client comments
+      if (userRole === "client") {
+        // Get all admin users to notify them
+        const { data: adminUsers } = await supabase
+          .from("users")
+          .select("id")
+          .eq("role", "admin");
+
+        if (adminUsers && adminUsers.length > 0) {
+          // Create notification for each admin
+          const notifications = adminUsers.map((admin) => ({
+            client_id: params.clientId,
+            message: "Novo insight adicionado pelo cliente",
+            type: "insight" as const,
+            is_read: false,
+            user_id: admin.id,
+            urgency: "low" as const,
+          }));
+
+          await supabase.from("notifications").insert(notifications);
+        }
+      }
+
+      setInsights([data, ...insights]);
+      setNewInsight("");
+    } catch (error) {
+      console.error("Error creating insight:", error);
+    }
+  };
+
+  const handleDeleteInsight = async (insightId: string) => {
+    if (!window.confirm("Deseja realmente excluir este insight?")) return;
+
+    try {
+      const { error } = await supabase
+        .from("insights")
+        .delete()
+        .eq("id", insightId);
+
+      if (error) throw error;
+
+      setInsights(insights.filter((i) => i.id !== insightId));
+    } catch (error) {
+      console.error("Error deleting insight:", error);
+    }
+  };
+
+  const handleStartEdit = (insight: InsightRow) => {
+    setEditingId(insight.id);
+    setEditContent(insight.content);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditContent("");
+  };
+
+  const handleSaveEdit = async (insightId: string) => {
+    if (!editContent.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from("insights")
+        .update({ content: editContent.trim(), updated_at: new Date().toISOString() })
+        .eq("id", insightId);
+
+      if (error) throw error;
+
+      setInsights(
+        insights.map((i) =>
+          i.id === insightId ? { ...i, content: editContent.trim() } : i
+        )
+      );
+      setEditingId(null);
+      setEditContent("");
+    } catch (error) {
+      console.error("Error updating insight:", error);
+    }
+  };
+
+  const getUserPhoto = (authorId: string, authorRole: string) => {
+    if (authorRole === "client") {
+      const client = clients.find((c) => c.client_id === authorId);
+      return (
+        client?.profile_picture_url ||
+        `https://ui-avatars.com/api/?name=${client?.name.substring(
+          0,
+          2
+        )}&background=random`
+      );
+    }
+    return `https://ui-avatars.com/api/?name=A&background=indigo&color=white`;
+  };
+
+  const canEditOrDelete = (insight: InsightRow) => {
+    return (
+      userRole === "admin" ||
+      (userRole === "client" && insight.author_id === user?.id)
+    );
+  };
+
+  return (
+    <div className="max-w-4xl">
+      <div className="flex items-center gap-3 mb-8">
+        <MessageCircle size={32} className="text-indigo-500" />
+        <h1 className="text-3xl font-bold">Insights & Ideias</h1>
+      </div>
+
+      <div className="bg-gray-800 rounded-lg p-6 mb-6">
+        <form onSubmit={handleSubmitInsight} className="flex gap-3">
+          <textarea
+            value={newInsight}
+            onChange={(e) => setNewInsight(e.target.value)}
+            placeholder="Compartilhe uma ideia ou insight..."
+            className="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-400 resize-none"
+            rows={3}
+          />
+          <button
+            type="submit"
+            disabled={!newInsight.trim()}
+            className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors self-end"
+          >
+            <Send size={20} />
+          </button>
+        </form>
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center items-center h-32">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+        </div>
+      ) : insights.length === 0 ? (
+        <div className="text-center text-gray-400 py-12 bg-gray-800 rounded-lg">
+          <MessageCircle size={48} className="mx-auto mb-4 opacity-50" />
+          <p className="text-lg">Nenhuma ideia compartilhada ainda.</p>
+          <p className="text-sm">Seja o primeiro a compartilhar uma ideia!</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {insights.map((insight) => (
+            <div
+              key={insight.id}
+              className={`p-4 rounded-lg ${
+                insight.author_role === "admin"
+                  ? "bg-indigo-900/30 border-l-4 border-indigo-500"
+                  : "bg-gray-800 border-l-4 border-gray-500"
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <img
+                  src={getUserPhoto(insight.author_id, insight.author_role)}
+                  alt={insight.author_role === "admin" ? "Admin" : "Cliente"}
+                  className="w-10 h-10 rounded-full object-cover"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-300">
+                        {insight.author_role === "admin" ? "Admin" : "Você"}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {dayjs(insight.created_at).format("DD/MM/YYYY HH:mm")}
+                      </span>
+                    </div>
+                    {canEditOrDelete(insight) && (
+                      <div className="flex gap-2">
+                        {editingId !== insight.id && (
+                          <>
+                            <button
+                              onClick={() => handleStartEdit(insight)}
+                              className="text-gray-400 hover:text-indigo-400 transition-colors"
+                              title="Editar"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteInsight(insight.id)}
+                              className="text-gray-400 hover:text-red-400 transition-colors"
+                              title="Excluir"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {editingId === insight.id ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={editContent}
+                        onChange={(e) => setEditContent(e.target.value)}
+                        className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white resize-none"
+                        rows={3}
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleSaveEdit(insight.id)}
+                          className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-sm"
+                        >
+                          <Save size={14} />
+                          Salvar
+                        </button>
+                        <button
+                          onClick={handleCancelEdit}
+                          className="flex items-center gap-1 bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded text-sm"
+                        >
+                          <X size={14} />
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-gray-200 whitespace-pre-wrap">
+                      {insight.content}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+

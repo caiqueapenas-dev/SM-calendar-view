@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import React, { useRef } from "react";
+import React, { useRef, useEffect } from "react";
 
 interface ModalProps {
   isOpen: boolean;
@@ -18,6 +18,28 @@ export default function Modal({
 }: ModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+
+  // Prevent background scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+      document.body.style.position = "fixed";
+      document.body.style.width = "100%";
+      document.body.style.top = "0";
+    } else {
+      document.body.style.overflow = "";
+      document.body.style.position = "";
+      document.body.style.width = "";
+      document.body.style.top = "";
+    }
+    
+    return () => {
+      document.body.style.overflow = "";
+      document.body.style.position = "";
+      document.body.style.width = "";
+      document.body.style.top = "";
+    };
+  }, [isOpen]);
 
   // Previne o fechamento do modal quando o clique é arrastado para fora.
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -41,13 +63,13 @@ export default function Modal({
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-hidden"
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
     >
       <div
         ref={contentRef}
-        className="bg-gray-800 rounded-lg shadow-xl w-full max-w-lg flex flex-col max-h-[90vh]"
+        className="bg-gray-800 rounded-lg shadow-xl w-full max-w-lg flex flex-col max-h-[90vh] overscroll-contain"
       >
         <div className="flex justify-between items-center p-4 border-b border-gray-700">
           <h2 className="text-lg font-semibold">{title}</h2>

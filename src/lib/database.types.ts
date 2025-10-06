@@ -128,35 +128,35 @@ export type Database = {
       notifications: {
         Row: {
           id: string;
-          type: "approval_reminder" | "client_edit";
+          type: "approval_reminder" | "client_edit" | "insight";
           client_id: string;
-          post_id: string;
+          post_id: string | null;
           message: string;
           urgency: "low" | "medium" | "high";
           created_at: string;
-          read: boolean;
+          is_read: boolean;
           user_id: string;
         };
         Insert: {
           id?: string;
-          type: "approval_reminder" | "client_edit";
+          type: "approval_reminder" | "client_edit" | "insight";
           client_id: string;
-          post_id: string;
+          post_id?: string | null;
           message: string;
-          urgency: "low" | "medium" | "high";
+          urgency?: "low" | "medium" | "high";
           created_at?: string;
-          read?: boolean;
+          is_read?: boolean;
           user_id: string;
         };
         Update: {
           id?: string;
-          type?: "approval_reminder" | "client_edit";
+          type?: "approval_reminder" | "client_edit" | "insight";
           client_id?: string;
-          post_id?: string;
+          post_id?: string | null;
           message?: string;
           urgency?: "low" | "medium" | "high";
           created_at?: string;
-          read?: boolean;
+          is_read?: boolean;
           user_id?: string;
         };
         Relationships: [];

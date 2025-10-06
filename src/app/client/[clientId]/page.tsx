@@ -4,10 +4,8 @@ import { useState, useMemo } from "react";
 import { useAppStore } from "@/store/appStore";
 import PostCard from "@/components/common/PostCard";
 import PostModal from "@/components/common/PostModal";
-import InsightsPanel from "@/components/insights/InsightsPanel";
 import dayjs from "dayjs";
 import { Database } from "@/lib/database.types";
-import { MessageCircle } from "lucide-react";
 
 type PostRow = Database["public"]["Tables"]["posts"]["Row"];
 
@@ -20,7 +18,6 @@ export default function ClientDashboardPage({
   const [selectedPost, setSelectedPost] = useState<PostRow | null>(null);
   const [isModalOpen, setModalOpen] = useState(false);
   const [visiblePublishedCount, setVisiblePublishedCount] = useState(5);
-  const [isInsightsOpen, setIsInsightsOpen] = useState(false);
 
   const clientPosts = useMemo(() => {
     return posts.filter((p) => p.client_id === params.clientId);
@@ -82,16 +79,7 @@ export default function ClientDashboardPage({
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Dashboard do Cliente</h1>
-        <button
-          onClick={() => setIsInsightsOpen(true)}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"
-        >
-          <MessageCircle size={20} />
-          Insights & Ideias
-        </button>
-      </div>
+      <h1 className="text-3xl font-bold mb-8">Dashboard do Cliente</h1>
 
       <section className="mb-12">
         <h2 className="text-2xl font-semibold mb-4">Para Revisão</h2>
@@ -183,12 +171,6 @@ export default function ClientDashboardPage({
         isOpen={isModalOpen}
         onClose={() => setModalOpen(false)}
         post={selectedPost}
-      />
-
-      <InsightsPanel
-        clientId={params.clientId}
-        isOpen={isInsightsOpen}
-        onClose={() => setIsInsightsOpen(false)}
       />
     </div>
   );

@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAppStore } from "@/store/appStore";
-import { LayoutDashboard, Calendar, LogOut, Loader } from "lucide-react";
+import { LayoutDashboard, Calendar, LogOut, Loader, MessageCircle } from "lucide-react";
 
 export default function ClientLayout({
   children,
@@ -48,6 +48,11 @@ export default function ClientLayout({
       href: `/client/${params.clientId}/calendar`,
       label: "Calendário",
       icon: Calendar,
+    },
+    {
+      href: `/client/${params.clientId}/insights`,
+      label: "Insights",
+      icon: MessageCircle,
     },
   ];
 
