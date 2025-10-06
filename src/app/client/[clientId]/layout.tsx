@@ -52,9 +52,9 @@ export default function ClientLayout({
   ];
 
   return (
-    <div className="container mx-auto p-4 md:p-8">
-      <header className="flex flex-col md:flex-row justify-between md:items-center mb-8 gap-4">
-        <div className="flex items-center gap-4">
+    <div className="container mx-auto px-4 py-6 md:px-8 md:py-8">
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div className="flex items-center gap-3">
           <img
             src={
               client?.profile_picture_url ||
@@ -64,11 +64,11 @@ export default function ClientLayout({
               )}&background=random`
             }
             alt={client?.name}
-            className="w-16 h-16 rounded-full"
+            className="w-12 h-12 md:w-16 md:h-16 rounded-full"
           />
           <div>
-            <h1 className="text-3xl font-bold">
-              Bem-vindo, {client?.custom_name || client?.name}
+            <h1 className="text-2xl md:text-3xl font-bold">
+              Bem-vindo, {client?.name || client?.name}
             </h1>
             <p className="text-gray-400">Gerencie suas publicações.</p>
           </div>

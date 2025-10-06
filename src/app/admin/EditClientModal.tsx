@@ -23,25 +23,54 @@ export default function EditClientModal({
 }: EditClientModalProps) {
   const { updateClient } = useAppStore();
   const [isSaving, setIsSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  const [name, setName] = useState(client.name);
-  const [customName, setCustomName] = useState(client.custom_name || "");
-  const [category, setCategory] = useState(client.category || "");
-  const [instagram, setInstagram] = useState(client.instagram_handle || "");
-
-  const [pfpUrl, setPfpUrl] = useState(client.profile_picture_url || "");
+  const [name, setName] = useState("");
+  const [customName, setCustomName] = useState("");
+  const [category, setCategory] = useState("");
+  const [instagram, setInstagram] = useState("");
+  const [pfpUrl, setPfpUrl] = useState<string | null>(null);
   const [newPfpFile, setNewPfpFile] = useState<File | null>(null);
+
+  const initialData = {
+    name: client.name,
+    customName: client.custom_name || "",
+    category: client.category || "",
+    instagram: client.instagram_handle || "",
+    pfpUrl: client.profile_picture_url || null,
+  };
 
   useEffect(() => {
     if (isOpen) {
-      setName(client.name);
-      setCustomName(client.custom_name || "");
-      setCategory(client.category || "");
-      setInstagram(client.instagram_handle || "");
-      setPfpUrl(client.profile_picture_url || "");
+      setName(initialData.name);
+      setCustomName(initialData.customName);
+      setCategory(initialData.category);
+      setInstagram(initialData.instagram);
+      setPfpUrl(initialData.pfpUrl);
       setNewPfpFile(null);
+      setHasUnsavedChanges(false);
     }
   }, [client, isOpen]);
+
+  useEffect(() => {
+    const hasChanged =
+      name !== initialData.name ||
+      customName !== initialData.customName ||
+      category !== initialData.category ||
+      instagram !== initialData.instagram ||
+      pfpUrl !== initialData.pfpUrl;
+    setHasUnsavedChanges(hasChanged);
+  }, [name, customName, category, instagram, pfpUrl, initialData]);
+
+  const handleClose = () => {
+    if (
+      hasUnsavedChanges &&
+      !window.confirm("Você tem alterações não salvas. Deseja descartá-las?")
+    ) {
+      return;
+    }
+    onClose();
+  };
 
   const uploadFileToCloudinary = async (file: File): Promise<string> => {
     const formData = new FormData();
@@ -89,8 +118,7 @@ export default function EditClientModal({
     }
   };
 
-  const handleFileSelected = (files: File[]) => {
-    const file = files[0];
+  const handleFileSelected = (file: File) => {
     if (file) {
       setNewPfpFile(file);
       setPfpUrl(URL.createObjectURL(file));
@@ -103,7 +131,11 @@ export default function EditClientModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`Editar ${client.name}`}>
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title={`Editar ${client.name}`}
+    >
       <div className="p-6 space-y-4">
         <div>
           <label className="text-sm font-medium text-gray-300">
@@ -112,7 +144,7 @@ export default function EditClientModal({
           <div className="mt-1">
             <ImageUploader
               previewUrl={pfpUrl}
-              onFilesAdded={handleFileSelected}
+              onFileSelected={handleFileSelected}
               onFileRemoved={handleFileRemoved}
               allowMultiple={false}
               mediaCount={pfpUrl ? 1 : 0}
@@ -163,7 +195,7 @@ export default function EditClientModal({
         </div>
         <div className="flex justify-end gap-3 pt-4">
           <button
-            onClick={onClose}
+            onClick={handleClose}
             disabled={isSaving}
             className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg"
           >

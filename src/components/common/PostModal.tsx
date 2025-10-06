@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect } from "react";
 import { PostStatus, PostMediaType } from "@/lib/types";
 import { useAppStore } from "@/store/appStore";
@@ -16,6 +18,8 @@ import {
   History,
   FileText,
   Loader,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import * as unidiff from "unidiff";
 import { Database } from "@/lib/database.types";
@@ -66,8 +70,6 @@ export default function PostModal({
   post: initialPost,
 }: PostModalProps) {
   const { userRole, updatePost, updatePostStatus, posts } = useAppStore();
-
-  // O post "vivo" que reflete as atualizações do store em tempo real
   const post = isOpen
     ? posts.find((p) => p.id === initialPost?.id) || initialPost
     : initialPost;
@@ -75,6 +77,10 @@ export default function PostModal({
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState("review");
   const [isSaving, setIsSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  const [carouselImages, setCarouselImages] = useState<string[]>([]);
+  const [currentSlide, setCurrentSlide] = useState(0);
 
   const [editedCaption, setEditedCaption] = useState("");
   const [editedMediaUrl, setEditedMediaUrl] = useState("");
@@ -86,6 +92,7 @@ export default function PostModal({
 
   useEffect(() => {
     if (post) {
+      // Verificação de nulo aqui
       setEditedCaption(post.caption || "");
       setEditedMediaUrl(post.media_url || "");
       setEditedMediaType((post.media_type as PostMediaType) || "FOTO");
@@ -93,21 +100,53 @@ export default function PostModal({
         (Array.isArray(post.platforms) ? post.platforms : []) as any
       );
       setEditedScheduledAt(post.scheduled_at || "");
-      // Não resetar o modo de edição se o post for atualizado em tempo real
-      if (!isSaving) {
-        setIsEditing(false);
-      }
-      setActiveTab("review");
-    }
-  }, [post, isOpen]); // Roda o efeito quando o post do store muda
+      setHasUnsavedChanges(false);
 
-  if (!post) return null;
+      if (
+        post.media_type === "CARROSSEL" &&
+        typeof post.media_url === "string"
+      ) {
+        try {
+          const urls = JSON.parse(post.media_url);
+          setCarouselImages(Array.isArray(urls) ? urls : [post.media_url]);
+        } catch (e) {
+          setCarouselImages(post.media_url ? [post.media_url] : []);
+        }
+      } else {
+        setCarouselImages(post.media_url ? [post.media_url] : []);
+      }
+      setCurrentSlide(0);
+
+      if (!isSaving) setIsEditing(false);
+    }
+  }, [post, isOpen, isSaving]);
+
+  useEffect(() => {
+    if (isEditing && post) {
+      // Verificação de nulo aqui também
+      const hasChanged = (post.caption || "") !== editedCaption;
+      setHasUnsavedChanges(hasChanged);
+    }
+  }, [editedCaption, isEditing, post]);
+
+  const handleClose = () => {
+    if (
+      isEditing &&
+      hasUnsavedChanges &&
+      !window.confirm("Você tem alterações não salvas. Deseja descartá-las?")
+    ) {
+      return;
+    }
+    onClose();
+  };
 
   const handleSave = async () => {
-    if (!userRole) return;
+    if (!post || !userRole) return;
+
     setIsSaving(true);
     try {
       let updates: Partial<PostRow> = { caption: editedCaption };
+
       if (userRole === "admin") {
         updates = {
           ...updates,
@@ -117,9 +156,11 @@ export default function PostModal({
           scheduled_at: new Date(editedScheduledAt).toISOString(),
         };
       }
+
       await updatePost(post.id, updates);
       alert("Post atualizado com sucesso!");
-      setIsEditing(false); // Apenas volta para o modo de visualização
+      setIsEditing(false);
+      setHasUnsavedChanges(false);
     } catch (error) {
       alert("Falha ao atualizar o post.");
       console.error(error);
@@ -129,6 +170,7 @@ export default function PostModal({
   };
 
   const handleCancelEdit = () => {
+    if (!post) return;
     setEditedCaption(post.caption || "");
     setEditedMediaUrl(post.media_url || "");
     setEditedMediaType(post.media_type as PostMediaType);
@@ -140,13 +182,14 @@ export default function PostModal({
   };
 
   const handleApproval = async (status: PostStatus) => {
+    if (!post) return;
     setIsSaving(true);
     try {
       await updatePostStatus(post.id, status);
       alert(
         `Post ${status === "agendado" ? "aprovado" : "reprovado"} com sucesso!`
       );
-      onClose(); // Aprovando/reprovando ainda fecha o modal, pois é uma ação final
+      onClose();
     } catch (error) {
       alert("Falha ao atualizar o status do post.");
       console.error(error);
@@ -163,25 +206,60 @@ export default function PostModal({
     );
   };
 
+  const nextSlide = () =>
+    setCurrentSlide((prev) => (prev + 1) % carouselImages.length);
+  const prevSlide = () =>
+    setCurrentSlide(
+      (prev) => (prev - 1 + carouselImages.length) % carouselImages.length
+    );
+  if (!post) return null; // A guarda principal que já existia
+
   const formattedDate = dayjs(post.scheduled_at).format(
     "DD [de] MMMM [de] YYYY [às] HH:mm"
   );
   const dayOfWeek = dayjs(post.scheduled_at).format("dddd");
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose}>
+    <Modal isOpen={isOpen} onClose={handleClose}>
       <div className="flex flex-col max-h-[90vh]">
-        <div className="relative w-full h-[40vh] flex-shrink-0 bg-black rounded-t-lg">
-          <img
-            src={
-              (isEditing && userRole === "admin"
-                ? editedMediaUrl
-                : post.media_url) ||
-              "https://placehold.co/800x600/1f2937/9ca3af?text=Sem+Imagem"
-            }
-            alt="Post media"
-            className="w-full h-full object-contain"
-          />
+        <div className="relative w-full h-[40vh] flex-shrink-0 bg-black rounded-t-lg group">
+          {carouselImages.length > 0 ? (
+            <img
+              src={carouselImages[currentSlide]}
+              alt={`Slide ${currentSlide + 1}`}
+              className="w-full h-full object-contain"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-gray-500">
+              Sem Mídia
+            </div>
+          )}
+          {carouselImages.length > 1 && (
+            <>
+              <button
+                onClick={prevSlide}
+                className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 p-1 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <ChevronLeft size={24} />
+              </button>
+              <button
+                onClick={nextSlide}
+                className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 p-1 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <ChevronRight size={24} />
+              </button>
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+                {carouselImages.map((_, idx) => (
+                  <div
+                    key={idx}
+                    className={`w-2 h-2 rounded-full ${
+                      currentSlide === idx ? "bg-white" : "bg-white/50"
+                    }`}
+                  ></div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         <div className="border-b border-gray-700">
@@ -275,13 +353,11 @@ export default function PostModal({
                 )}
               </div>
 
-              {!isEditing && (
+              {!isEditing ? (
                 <p className="text-white whitespace-pre-wrap">
                   {post.caption || "Sem legenda."}
                 </p>
-              )}
-
-              {isEditing && (
+              ) : (
                 <div className="space-y-4">
                   {userRole === "admin" && (
                     <>{/* Campos de edição do Admin */}</>
