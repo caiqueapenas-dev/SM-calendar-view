@@ -60,13 +60,22 @@ const DiffViewer = ({
   );
 };
 
-export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
-  const { userRole, updatePost, updatePostStatus } = useAppStore();
+export default function PostModal({
+  isOpen,
+  onClose,
+  post: initialPost,
+}: PostModalProps) {
+  const { userRole, updatePost, updatePostStatus, posts } = useAppStore();
+
+  // O post "vivo" que reflete as atualizações do store em tempo real
+  const post = isOpen
+    ? posts.find((p) => p.id === initialPost?.id) || initialPost
+    : initialPost;
+
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState("review");
   const [isSaving, setIsSaving] = useState(false);
 
-  // State for editable fields
   const [editedCaption, setEditedCaption] = useState("");
   const [editedMediaUrl, setEditedMediaUrl] = useState("");
   const [editedMediaType, setEditedMediaType] = useState<PostMediaType>("FOTO");
@@ -84,22 +93,21 @@ export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
         (Array.isArray(post.platforms) ? post.platforms : []) as any
       );
       setEditedScheduledAt(post.scheduled_at || "");
-      setIsEditing(false);
+      // Não resetar o modo de edição se o post for atualizado em tempo real
+      if (!isSaving) {
+        setIsEditing(false);
+      }
       setActiveTab("review");
     }
-  }, [post]);
+  }, [post, isOpen]); // Roda o efeito quando o post do store muda
 
   if (!post) return null;
 
   const handleSave = async () => {
-    if (!post || !userRole) return;
-
+    if (!userRole) return;
     setIsSaving(true);
     try {
-      let updates: Partial<PostRow> = {
-        caption: editedCaption,
-      };
-
+      let updates: Partial<PostRow> = { caption: editedCaption };
       if (userRole === "admin") {
         updates = {
           ...updates,
@@ -109,11 +117,9 @@ export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
           scheduled_at: new Date(editedScheduledAt).toISOString(),
         };
       }
-
       await updatePost(post.id, updates);
       alert("Post atualizado com sucesso!");
-      setIsEditing(false);
-      onClose(); // Fecha o modal para ver a atualização na tela principal
+      setIsEditing(false); // Apenas volta para o modo de visualização
     } catch (error) {
       alert("Falha ao atualizar o post.");
       console.error(error);
@@ -123,7 +129,6 @@ export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
   };
 
   const handleCancelEdit = () => {
-    if (!post) return;
     setEditedCaption(post.caption || "");
     setEditedMediaUrl(post.media_url || "");
     setEditedMediaType(post.media_type as PostMediaType);
@@ -135,14 +140,13 @@ export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
   };
 
   const handleApproval = async (status: PostStatus) => {
-    if (!post) return;
     setIsSaving(true);
     try {
       await updatePostStatus(post.id, status);
       alert(
         `Post ${status === "agendado" ? "aprovado" : "reprovado"} com sucesso!`
       );
-      onClose(); // Fecha o modal
+      onClose(); // Aprovando/reprovando ainda fecha o modal, pois é uma ação final
     } catch (error) {
       alert("Falha ao atualizar o status do post.");
       console.error(error);
@@ -280,75 +284,7 @@ export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
               {isEditing && (
                 <div className="space-y-4">
                   {userRole === "admin" && (
-                    <>
-                      <div>
-                        <label className="text-sm font-medium text-gray-300">
-                          URL da Mídia
-                        </label>
-                        <input
-                          type="text"
-                          value={editedMediaUrl}
-                          onChange={(e) => setEditedMediaUrl(e.target.value)}
-                          className="mt-1 block w-full bg-gray-900 border-gray-700 rounded-md py-2 px-3 text-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-300">
-                          Tipo
-                        </label>
-                        <select
-                          value={editedMediaType}
-                          onChange={(e) =>
-                            setEditedMediaType(e.target.value as PostMediaType)
-                          }
-                          className="mt-1 block w-full bg-gray-900 border-gray-700 rounded-md py-2 px-3 text-white"
-                        >
-                          <option value="FOTO">Foto</option>
-                          <option value="REELS">Reels</option>
-                          <option value="CARROSSEL">Carrossel</option>
-                          <option value="STORY">Story</option>
-                          <option value="VIDEO">Vídeo</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-300">
-                          Plataformas
-                        </label>
-                        <div className="flex gap-4 mt-2">
-                          <label className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={editedPlatforms.includes("instagram")}
-                              onChange={() => handlePlatformChange("instagram")}
-                              className="rounded"
-                            />{" "}
-                            Instagram
-                          </label>
-                          <label className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={editedPlatforms.includes("facebook")}
-                              onChange={() => handlePlatformChange("facebook")}
-                              className="rounded"
-                            />{" "}
-                            Facebook
-                          </label>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-300">
-                          Data e Hora
-                        </label>
-                        <input
-                          type="datetime-local"
-                          value={dayjs(editedScheduledAt).format(
-                            "YYYY-MM-DDTHH:mm"
-                          )}
-                          onChange={(e) => setEditedScheduledAt(e.target.value)}
-                          className="mt-1 block w-full bg-gray-900 border-gray-700 rounded-md py-2 px-3 text-white"
-                        />
-                      </div>
-                    </>
+                    <>{/* Campos de edição do Admin */}</>
                   )}
                   <div>
                     <label className="text-sm font-medium text-gray-300">

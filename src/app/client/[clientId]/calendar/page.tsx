@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useAppStore } from "@/store/appStore";
-import { Dayjs } from "dayjs";
+import dayjs, { Dayjs } from "dayjs";
 import CalendarView from "@/components/calendar/CalendarView";
 import PostModal from "@/components/common/PostModal";
+import ClientDayPostsModal from "../ClientDayPostsModal";
 import { Database } from "@/lib/database.types";
 
 type PostRow = Database["public"]["Tables"]["posts"]["Row"];
@@ -16,17 +17,26 @@ export default function ClientCalendarPage({
 }) {
   const { posts } = useAppStore();
   const [selectedPost, setSelectedPost] = useState<PostRow | null>(null);
-  const [isModalOpen, setModalOpen] = useState(false);
+  const [isPostModalOpen, setPostModalOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
+  const [isDayModalOpen, setDayModalOpen] = useState(false);
 
   const clientPosts = posts.filter((p) => p.client_id === params.clientId);
 
   const handlePostClick = (post: PostRow) => {
+    setDayModalOpen(false);
     setSelectedPost(post);
-    setModalOpen(true);
+    setPostModalOpen(true);
   };
 
   const handleDayClick = (date: Dayjs) => {
-    // Ação ao clicar no dia pode ser implementada aqui se necessário
+    const postsOnDay = clientPosts.filter((p) =>
+      dayjs(p.scheduled_at).isSame(date, "day")
+    );
+    if (postsOnDay.length > 0) {
+      setSelectedDate(date);
+      setDayModalOpen(true);
+    }
   };
 
   return (
@@ -39,9 +49,20 @@ export default function ClientCalendarPage({
       />
 
       <PostModal
-        isOpen={isModalOpen}
-        onClose={() => setModalOpen(false)}
+        isOpen={isPostModalOpen}
+        onClose={() => setPostModalOpen(false)}
         post={selectedPost}
+      />
+
+      <ClientDayPostsModal
+        isOpen={isDayModalOpen}
+        onClose={() => setDayModalOpen(false)}
+        date={selectedDate}
+        posts={clientPosts.filter(
+          (p) =>
+            selectedDate && dayjs(p.scheduled_at).isSame(selectedDate, "day")
+        )}
+        onPostSelect={handlePostClick}
       />
     </>
   );

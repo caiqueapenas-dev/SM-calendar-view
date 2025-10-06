@@ -1,33 +1,55 @@
 "use client";
 
 import Modal from "../../components/common/Modal";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAppStore } from "@/store/appStore";
 import { PostMediaType } from "@/lib/types";
 import { Database } from "@/lib/database.types";
 import { Loader } from "lucide-react";
+import { Dayjs } from "dayjs";
+import ImageUploader from "../../components/common/ImageUploader";
 
 type PostInsert = Database["public"]["Tables"]["posts"]["Insert"];
 
 interface CreatePostModalProps {
   isOpen: boolean;
   onClose: () => void;
+  defaultDate?: Dayjs | null;
 }
 
 export default function CreatePostModal({
   isOpen,
   onClose,
+  defaultDate,
 }: CreatePostModalProps) {
   const { clients, addPost } = useAppStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Garante que o estado inicial tenha um valor válido
-  const [clientId, setClientId] = useState(clients[0]?.client_id || "");
+  const [clientId, setClientId] = useState(
+    clients.length > 0 ? clients[0].client_id : ""
+  );
   const [caption, setCaption] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
   const [mediaType, setMediaType] = useState<PostMediaType>("FOTO");
   const [platforms, setPlatforms] = useState<("instagram" | "facebook")[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      if (defaultDate) {
+        // Formata a data e adiciona o horário padrão 10:00
+        const formattedDate = defaultDate
+          .hour(10)
+          .minute(0)
+          .second(0)
+          .format("YYYY-MM-DDTHH:mm");
+        setScheduledAt(formattedDate);
+      }
+    } else {
+      // Reseta o formulário quando o modal fecha
+      resetForm();
+    }
+  }, [isOpen, defaultDate]);
 
   const resetForm = () => {
     setCaption("");
@@ -50,7 +72,9 @@ export default function CreatePostModal({
 
   const handleSubmit = async () => {
     if (!clientId || !mediaUrl || !scheduledAt || platforms.length === 0) {
-      alert("Por favor, preencha todos os campos obrigatórios.");
+      alert(
+        "Por favor, preencha todos os campos obrigatórios (Mídia, Cliente, Data e Plataforma)."
+      );
       return;
     }
 
@@ -72,7 +96,6 @@ export default function CreatePostModal({
 
       if (success) {
         alert("Post agendado com sucesso!");
-        resetForm();
         onClose();
       } else {
         alert("Ocorreu um erro ao agendar o post.");
@@ -99,19 +122,17 @@ export default function CreatePostModal({
             ))}
           </select>
         </div>
-        {/* ... restante do formulário ... */}
+
         <div>
-          <label className="text-sm font-medium text-gray-300">
-            URL da Mídia
-          </label>
-          <input
-            type="text"
-            value={mediaUrl}
-            onChange={(e) => setMediaUrl(e.target.value)}
-            placeholder="https://exemplo.com/imagem.jpg"
-            className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md py-2 px-3 text-white"
-          />
+          <label className="text-sm font-medium text-gray-300">Mídia</label>
+          <div className="mt-1">
+            <ImageUploader
+              mediaUrl={mediaUrl}
+              onUploadSuccess={(url) => setMediaUrl(url)}
+            />
+          </div>
         </div>
+
         <div>
           <label className="text-sm font-medium text-gray-300">Legenda</label>
           <textarea
