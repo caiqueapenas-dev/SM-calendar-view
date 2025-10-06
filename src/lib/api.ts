@@ -53,7 +53,7 @@ export async function fetchClientPosts(client: Client): Promise<Post[]> {
   const igAccountId = igAccountData?.instagram_business_account?.id;
 
   const fbFields =
-    "id,message,created_time,scheduled_publish_time,permalink_url,type,full_picture,attachments{media{image,source},type,subattachments{media{image,source}}}";
+    "id,message,created_time,scheduled_publish_time,permalink_url,type,full_picture";
   const fbPublishedPromise = fetchApi(
     `${pageId}/published_posts?access_token=${access_token}&fields=${fbFields}&limit=50`
   );
@@ -61,7 +61,7 @@ export async function fetchClientPosts(client: Client): Promise<Post[]> {
     `${pageId}/scheduled_posts?access_token=${access_token}&fields=${fbFields}`
   );
   const fbStoriesPromise = fetchApi(
-    `${pageId}/stories?access_token=${access_token}&fields=id,created_time,attachments{media{image,source},type}`
+    `${pageId}/stories?access_token=${access_token}&fields=id,created_time,full_picture`
   );
 
   let igPromise: Promise<any> = Promise.resolve(null);
@@ -133,16 +133,13 @@ export async function fetchClientPosts(client: Client): Promise<Post[]> {
     if (postMap.has(key)) return;
 
     let media_type: Post["media_type"] = "FOTO";
-    const hasSubattachments =
-      p.attachments?.data?.[0]?.subattachments?.data?.length > 0;
-    if (p.type === "album" || hasSubattachments) {
+    if (p.type === "album") {
       media_type = "CARROSSEL";
     } else if (p.type === "video") {
       media_type = "REELS";
     }
 
-    const imageUrl =
-      p.attachments?.data?.[0]?.media?.image?.src || p.full_picture;
+    const imageUrl = p.full_picture;
 
     const post: Post = {
       id: p.id,
@@ -154,13 +151,7 @@ export async function fetchClientPosts(client: Client): Promise<Post[]> {
       status: "published",
       media_type: media_type,
       permalink: p.permalink_url,
-      children: p.attachments?.data?.[0]?.subattachments?.data?.map(
-        (child: any) => ({
-          id: child.media.id,
-          media_url: child.media?.image?.src,
-          media_type: child.type?.toUpperCase(),
-        })
-      ),
+      children: undefined, // Simplified - no longer using subattachments
       client,
     };
     postMap.set(key, post);
@@ -168,16 +159,13 @@ export async function fetchClientPosts(client: Client): Promise<Post[]> {
 
   (fbScheduledResult?.data || []).forEach((p: any) => {
     let media_type: Post["media_type"] = "FOTO";
-    const hasSubattachments =
-      p.attachments?.data?.[0]?.subattachments?.data?.length > 0;
-    if (p.type === "album" || hasSubattachments) {
+    if (p.type === "album") {
       media_type = "CARROSSEL";
     } else if (p.type === "video") {
       media_type = "REELS";
     }
 
-    const imageUrl =
-      p.attachments?.data?.[0]?.media?.image?.src || p.full_picture;
+    const imageUrl = p.full_picture;
 
     const post: Post = {
       id: p.id,
@@ -199,15 +187,15 @@ export async function fetchClientPosts(client: Client): Promise<Post[]> {
   (fbStoriesResult?.data || []).forEach((s: any) => {
     if (
       dayjs(s.created_time).isAfter(thirtyDaysAgo) &&
-      s.attachments?.data?.[0]?.media
+      s.full_picture
     ) {
       const post: Post = {
         id: s.id,
         platform: "facebook",
         caption: null,
         timestamp: s.created_time,
-        media_url: s.attachments.data[0].media.image.src,
-        thumbnail_url: s.attachments.data[0].media.image.src,
+        media_url: s.full_picture,
+        thumbnail_url: s.full_picture,
         status: "published",
         media_type: "STORY",
         permalink: `https://www.facebook.com/stories/${
@@ -240,4 +228,33 @@ export async function fetchClientPosts(client: Client): Promise<Post[]> {
   const allPosts = Array.from(postMap.values());
 
   return allPosts.sort((a, b) => dayjs(b.timestamp).diff(dayjs(a.timestamp)));
+}
+
+// Alias for fetchClientPosts to match admin page expectations
+export async function fetchAllClientData(client: Client): Promise<Post[]> {
+  return fetchClientPosts(client);
+}
+
+// Function to get client profile picture
+export async function getClientProfilePicture(
+  clientId: string,
+  accessToken: string
+): Promise<string | null> {
+  try {
+    const data = await fetchApi(
+      `${clientId}?fields=picture.type(large),instagram_business_account{profile_picture_url}&access_token=${accessToken}`
+    );
+    
+    if (data) {
+      return (
+        data.instagram_business_account?.profile_picture_url ||
+        data.picture?.data?.url ||
+        null
+      );
+    }
+    return null;
+  } catch (error) {
+    console.error("Error fetching client profile picture:", error);
+    return null;
+  }
 }
