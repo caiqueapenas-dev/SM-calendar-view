@@ -90,13 +90,10 @@ export default function DraggableThumbnails({
   onRemove,
   onCrop,
 }: DraggableThumbnailsProps) {
-  // CORREÇÃO: Adicionada uma restrição de ativação ao sensor do mouse.
-  // Isso exige que o mouse se mova alguns pixels antes de iniciar um arrasto,
-  // permitindo que cliques simples nos botões funcionem.
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 5, // O mouse precisa se mover 5px para começar a arrastar
+        distance: 5,
       },
     })
   );
