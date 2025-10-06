@@ -5,11 +5,17 @@ import { UploadCloud, X, Loader } from "lucide-react";
 import ImageCropperModal from "./ImageCropperModal";
 
 interface ImageUploaderProps {
+  // Para lidar com novos arquivos selecionados (um ou mais)
   onFilesAdded?: (files: File[]) => void;
+  // Para lidar com um único arquivo selecionado (edição)
   onFileSelected?: (file: File) => void;
+  // Para lidar com a remoção de uma imagem existente (no modo de edição)
   onFileRemoved?: () => void;
+  // Para mostrar uma imagem que já existe (URL do banco de dados)
   previewUrl?: string | null;
+  // Permite a seleção de múltiplos arquivos
   allowMultiple: boolean;
+  // Controla a visibilidade (ex: não mostrar se já houver uma imagem no modo single-file)
   mediaCount: number;
 }
 
@@ -31,20 +37,23 @@ export default function ImageUploader({
     setError(null);
     const filesArray = Array.from(selectedFiles);
 
-    if (allowMultiple) {
+    if (allowMultiple && onFilesAdded) {
       // Cenário de Carrossel (CreatePostModal)
-      onFilesAdded?.(filesArray);
+      onFilesAdded(filesArray);
     } else {
       // Cenário de arquivo único (CreatePostModal ou EditClientModal)
       const file = filesArray[0];
       if (file.type.startsWith("video/")) {
         if (file.size > 50 * 1024 * 1024) {
+          // 50MB
           setError(`O vídeo é muito grande (máx 50MB).`);
           return;
         }
+        // Usa a função apropriada dependendo do contexto
         onFileSelected ? onFileSelected(file) : onFilesAdded?.([file]);
       } else if (file.type.startsWith("image/")) {
         if (file.size > 10 * 1024 * 1024) {
+          // 10MB
           setError(`A imagem é muito grande (máx 10MB).`);
           return;
         }
@@ -57,6 +66,7 @@ export default function ImageUploader({
   };
 
   const handleCropComplete = (croppedFile: File) => {
+    // Usa a função apropriada dependendo do contexto
     onFileSelected
       ? onFileSelected(croppedFile)
       : onFilesAdded?.([croppedFile]);
@@ -75,6 +85,7 @@ export default function ImageUploader({
     e.stopPropagation();
   };
 
+  // Se uma URL de preview foi fornecida (modo de edição), mostra a imagem existente
   if (previewUrl && onFileRemoved) {
     return (
       <div className="relative w-full h-40">
@@ -94,6 +105,7 @@ export default function ImageUploader({
     );
   }
 
+  // Não mostra a caixa de upload se não for múltiplo e já tiver um arquivo
   if (!allowMultiple && mediaCount > 0) {
     return null;
   }
