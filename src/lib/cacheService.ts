@@ -1,7 +1,9 @@
 import { supabase } from "../lib/supabaseClient";
-import { Post } from "@/lib/types";
+import { Database } from "./database.types";
 
 const CACHE_TTL_MINUTES = 15;
+
+type PostRow = Database["public"]["Tables"]["posts"]["Row"];
 
 interface CachedPost {
   id: string;
@@ -17,19 +19,29 @@ interface CachedPost {
   updated_at: string;
 }
 
-export async function getLastSyncTime(clientId: string): Promise<Date | null> {
-  const { data, error } = await supabase
-    .from("client_sync_status")
-    .select("last_sync_at")
-    .eq("client_id", clientId)
-    .maybeSingle();
+// Define a Post interface that matches the expected structure
+interface Post {
+  id: string;
+  platform: string;
+  caption: string | null;
+  timestamp: string;
+  media_url: string;
+  thumbnail_url?: string;
+  status: "published";
+  media_type: "FOTO" | "VIDEO" | "CARROSSEL" | "STORY" | "REELS";
+  clientId: string;
+}
 
-  if (error) {
+export async function getLastSyncTime(clientId: string): Promise<Date | null> {
+  // Since client_sync_status table doesn't exist in the current schema,
+  // we'll use a simple approach with localStorage or return null
+  try {
+    const lastSync = localStorage.getItem(`last_sync_${clientId}`);
+    return lastSync ? new Date(lastSync) : null;
+  } catch (error) {
     console.error("Error getting last sync time:", error);
     return null;
   }
-
-  return data ? new Date(data.last_sync_at) : null;
 }
 
 export async function shouldSync(clientId: string): Promise<boolean> {
@@ -50,20 +62,20 @@ export async function getCachedPosts(clientId: string): Promise<Post[]> {
     .from("posts")
     .select("*")
     .eq("client_id", clientId)
-    .order("timestamp", { ascending: false });
+    .order("scheduled_at", { ascending: false });
 
   if (error) {
     console.error("Error getting cached posts:", error);
     return [];
   }
 
-  return (data || []).map((post: CachedPost) => ({
-    id: post.post_id,
-    platform: post.raw_data?.platform || "instagram",
+  return (data || []).map((post: PostRow) => ({
+    id: post.id,
+    platform: "instagram", // Default platform
     caption: post.caption,
-    timestamp: post.timestamp,
-    media_url: post.media_url || "",
-    thumbnail_url: post.raw_data?.thumbnail_url,
+    timestamp: post.scheduled_at,
+    media_url: post.media_url,
+    thumbnail_url: post.thumbnail_url || undefined,
     status: "published" as const,
     media_type: post.media_type as Post["media_type"],
     clientId: post.client_id,
@@ -76,17 +88,19 @@ export async function savePosts(
 ): Promise<void> {
   const postsToInsert = posts.map((post) => ({
     client_id: clientId,
-    post_id: post.id,
     media_type: post.media_type,
-    media_url: post.media_url || null,
-    caption: post.caption || null,
-    timestamp: post.timestamp,
-    permalink: post.media_url || null,
-    raw_data: post,
+    media_url: post.media_url,
+    caption: post.caption,
+    scheduled_at: post.timestamp,
+    thumbnail_url: post.thumbnail_url || null,
+    status: "agendado",
+    created_by: "system", // Default creator
+    edit_history: [],
+    platforms: ["instagram"], // Default platform
   }));
 
   const { error } = await supabase.from("posts").upsert(postsToInsert, {
-    onConflict: "client_id,post_id",
+    onConflict: "id",
     ignoreDuplicates: false,
   });
 
@@ -97,17 +111,10 @@ export async function savePosts(
 }
 
 export async function updateSyncStatus(clientId: string): Promise<void> {
-  const { error } = await supabase.from("client_sync_status").upsert(
-    {
-      client_id: clientId,
-      last_sync_at: new Date().toISOString(),
-    },
-    {
-      onConflict: "client_id",
-    }
-  );
-
-  if (error) {
+  // Since client_sync_status table doesn't exist, use localStorage
+  try {
+    localStorage.setItem(`last_sync_${clientId}`, new Date().toISOString());
+  } catch (error) {
     console.error("Error updating sync status:", error);
     throw error;
   }
@@ -121,21 +128,21 @@ export async function getPostsSince(
     .from("posts")
     .select("*")
     .eq("client_id", clientId)
-    .gte("timestamp", since.toISOString())
-    .order("timestamp", { ascending: false });
+    .gte("scheduled_at", since.toISOString())
+    .order("scheduled_at", { ascending: false });
 
   if (error) {
     console.error("Error getting posts since:", error);
     return [];
   }
 
-  return (data || []).map((post: CachedPost) => ({
-    id: post.post_id,
-    platform: post.raw_data?.platform || "instagram",
+  return (data || []).map((post: PostRow) => ({
+    id: post.id,
+    platform: "instagram", // Default platform
     caption: post.caption,
-    timestamp: post.timestamp,
-    media_url: post.media_url || "",
-    thumbnail_url: post.raw_data?.thumbnail_url,
+    timestamp: post.scheduled_at,
+    media_url: post.media_url,
+    thumbnail_url: post.thumbnail_url || undefined,
     status: "published" as const,
     media_type: post.media_type as Post["media_type"],
     clientId: post.client_id,
@@ -148,15 +155,14 @@ export async function clearClientCache(clientId: string): Promise<void> {
     .delete()
     .eq("client_id", clientId);
 
-  const { error: syncError } = await supabase
-    .from("client_sync_status")
-    .delete()
-    .eq("client_id", clientId);
+  // Clear localStorage sync status
+  try {
+    localStorage.removeItem(`last_sync_${clientId}`);
+  } catch (error) {
+    console.error("Error clearing sync status from localStorage:", error);
+  }
 
   if (postsError) {
     console.error("Error clearing posts cache:", postsError);
-  }
-  if (syncError) {
-    console.error("Error clearing sync status:", syncError);
   }
 }
