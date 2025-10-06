@@ -10,10 +10,10 @@ type SpecialDate = {
   id: string;
   client_id: string;
   title: string;
-  description?: string;
+  description?: string | null;
   date: string;
   is_recurring: boolean;
-  recurrence_type?: "monthly" | "yearly";
+  recurrence_type?: "monthly" | "yearly" | null;
   created_at: string;
   updated_at: string;
 };
@@ -81,23 +81,25 @@ export default function SpecialDatesModal({
             description: formData.description,
             date: formData.date,
             is_recurring: formData.is_recurring,
-            recurrence_type: formData.is_recurring ? formData.recurrence_type : null,
+            recurrence_type: formData.is_recurring
+              ? formData.recurrence_type
+              : null,
           })
           .eq("id", editingDate.id);
 
         if (error) throw error;
       } else {
         // Create new date
-        const { error } = await supabase
-          .from("special_dates")
-          .insert({
-            client_id: clientId,
-            title: formData.title,
-            description: formData.description,
-            date: formData.date,
-            is_recurring: formData.is_recurring,
-            recurrence_type: formData.is_recurring ? formData.recurrence_type : null,
-          });
+        const { error } = await supabase.from("special_dates").insert({
+          client_id: clientId,
+          title: formData.title,
+          description: formData.description,
+          date: formData.date,
+          is_recurring: formData.is_recurring,
+          recurrence_type: formData.is_recurring
+            ? formData.recurrence_type
+            : null,
+        });
 
         if (error) throw error;
       }
@@ -151,7 +153,7 @@ export default function SpecialDatesModal({
 
   if (!isOpen) return null;
 
-  const client = clients.find(c => c.client_id === clientId);
+  const client = clients.find((c) => c.client_id === clientId);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -161,10 +163,7 @@ export default function SpecialDatesModal({
             <Calendar size={24} />
             Datas Especiais - {client?.name}
           </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white"
-          >
+          <button onClick={onClose} className="text-gray-400 hover:text-white">
             ✕
           </button>
         </div>
@@ -182,15 +181,21 @@ export default function SpecialDatesModal({
                   className="bg-gray-700 rounded-lg p-4 flex justify-between items-center"
                 >
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-white">{date.title}</h3>
+                    <h3 className="text-lg font-semibold text-white">
+                      {date.title}
+                    </h3>
                     {date.description && (
-                      <p className="text-gray-300 text-sm mt-1">{date.description}</p>
+                      <p className="text-gray-300 text-sm mt-1">
+                        {date.description}
+                      </p>
                     )}
                     <div className="flex items-center gap-4 mt-2 text-sm text-gray-400">
                       <span>{dayjs(date.date).format("DD/MM/YYYY")}</span>
                       {date.is_recurring && (
                         <span className="bg-indigo-600 text-white px-2 py-1 rounded text-xs">
-                          {date.recurrence_type === "yearly" ? "Anual" : "Mensal"}
+                          {date.recurrence_type === "yearly"
+                            ? "Anual"
+                            : "Mensal"}
                         </span>
                       )}
                     </div>
@@ -232,7 +237,12 @@ export default function SpecialDatesModal({
                   <input
                     type="text"
                     value={formData.title}
-                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        title: e.target.value,
+                      }))
+                    }
                     className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
                     required
                   />
@@ -244,20 +254,27 @@ export default function SpecialDatesModal({
                   <input
                     type="date"
                     value={formData.date}
-                    onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, date: e.target.value }))
+                    }
                     className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
                     required
                   />
                 </div>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Descrição
                 </label>
                 <textarea
                   value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
                   className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
                   rows={3}
                 />
@@ -268,16 +285,26 @@ export default function SpecialDatesModal({
                   <input
                     type="checkbox"
                     checked={formData.is_recurring}
-                    onChange={(e) => setFormData(prev => ({ ...prev, is_recurring: e.target.checked }))}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        is_recurring: e.target.checked,
+                      }))
+                    }
                     className="rounded"
                   />
                   <span className="text-gray-300">Data recorrente</span>
                 </label>
-                
+
                 {formData.is_recurring && (
                   <select
                     value={formData.recurrence_type}
-                    onChange={(e) => setFormData(prev => ({ ...prev, recurrence_type: e.target.value as "monthly" | "yearly" }))}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        recurrence_type: e.target.value as "monthly" | "yearly",
+                      }))
+                    }
                     className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
                   >
                     <option value="yearly">Anual</option>
