@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { SimulatedPost } from "@/lib/types";
+import { Post, PostStatus } from "@/lib/types";
 import { useAppStore } from "@/store/appStore";
 import dayjs from "dayjs";
 import "dayjs/locale/pt-br";
@@ -13,74 +13,58 @@ import {
   X,
   ThumbsUp,
   ThumbsDown,
+  History,
+  FileText,
 } from "lucide-react";
-import * as unidiff from "unidiff"; // ✅ Import correto
+import * as unidiff from "unidiff";
 
 dayjs.locale("pt-br");
 
 interface PostModalProps {
   isOpen: boolean;
   onClose: () => void;
-  post: SimulatedPost | null;
+  post: Post | null;
 }
 
-interface DiffViewerProps {
+const DiffViewer = ({
+  oldText,
+  newText,
+}: {
   oldText: string;
   newText: string;
-}
-
-const DiffViewer = ({ oldText, newText }: DiffViewerProps) => {
+}) => {
   const diff = unidiff.diffLines(oldText, newText);
   const formatted = unidiff.formatLines(diff, { context: 3 });
 
-  // Opcional: colorir linhas estilo GitHub
   const colorizeDiff = (line: string) => {
-    if (line.startsWith("+")) return "text-green-400";
-    if (line.startsWith("-")) return "text-red-400";
-    return "text-gray-300";
+    if (line.startsWith("+")) return "text-green-400 bg-green-900/30";
+    if (line.startsWith("-")) return "text-red-400 bg-red-900/30";
+    return "text-gray-400";
   };
 
   return (
-    <pre className="whitespace-pre-wrap font-mono text-sm bg-gray-900 p-2 rounded overflow-x-auto">
-      {formatted.split("\n").map((line, i) => (
-        <div key={i} className={colorizeDiff(line)}>
-          {line}
-        </div>
-      ))}
+    <pre className="whitespace-pre-wrap font-mono text-xs bg-gray-900 p-2 rounded overflow-x-auto">
+      {formatted
+        .split("\n")
+        .slice(2) // Remove header lines from unidiff
+        .map((line, i) => (
+          <div key={i} className={colorizeDiff(line)}>
+            {line}
+          </div>
+        ))}
     </pre>
   );
 };
 
 export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
-  const {
-    userType,
-    updateSimulatedPostCaption,
-    updatePostApprovalStatus,
-    updateSimulatedPost,
-  } = useAppStore();
+  const { userType, updatePost, updatePostStatus } = useAppStore();
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState("review");
-
-  // Admin editable fields
-  const [editedCaption, setEditedCaption] = useState(post?.caption || "");
-  const [editedMediaUrl, setEditedMediaUrl] = useState(post?.mediaUrl || "");
-  const [editedMediaType, setEditedMediaType] = useState<SimulatedPost["media_type"]>(
-    (post?.media_type as SimulatedPost["media_type"]) || "FOTO"
-  );
-  const [editedPlatforms, setEditedPlatforms] = useState<
-    ("instagram" | "facebook")[]
-  >(post?.platforms || []);
-  const [editedScheduledAt, setEditedScheduledAt] = useState(
-    post ? post.scheduledAt : ""
-  );
+  const [editedCaption, setEditedCaption] = useState("");
 
   useEffect(() => {
     if (post) {
       setEditedCaption(post.caption || "");
-      setEditedMediaUrl(post.mediaUrl || "");
-      setEditedMediaType((post.media_type as SimulatedPost["media_type"]) || "FOTO");
-      setEditedPlatforms(post.platforms || []);
-      setEditedScheduledAt(post.scheduledAt || "");
       setIsEditing(false);
       setActiveTab("review");
     }
@@ -89,24 +73,14 @@ export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
   if (!post) return null;
 
   const handleSave = () => {
-    if (!post) return;
-    if (userType === "client") {
-      updateSimulatedPostCaption(post.id, editedCaption);
-    } else if (userType === "admin") {
-      updateSimulatedPost(post.id, {
-        caption: editedCaption,
-        mediaUrl: editedMediaUrl,
-        media_type: editedMediaType,
-        platforms: editedPlatforms,
-        scheduledAt: editedScheduledAt,
-      });
-    }
+    if (!post || !userType) return;
+    updatePost(post.id, { caption: editedCaption });
     setIsEditing(false);
   };
 
-  const handleApproval = (status: "approved" | "rejected") => {
+  const handleApproval = (status: PostStatus) => {
     if (post) {
-      updatePostApprovalStatus(post.id, status);
+      updatePostStatus(post.id, status);
     }
   };
 
@@ -114,12 +88,10 @@ export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
     "DD [de] MMMM [de] YYYY [às] HH:mm"
   );
   const dayOfWeek = dayjs(post.scheduledAt).format("dddd");
-  const lineNumbers = editedCaption.split("\n").length;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
       <div className="flex flex-col max-h-[90vh]">
-        {/* Imagem do post */}
         <div className="relative flex-shrink-0 flex items-center justify-center bg-black rounded-t-lg overflow-hidden h-[40vh]">
           <img
             src={
@@ -131,41 +103,39 @@ export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
           />
         </div>
 
-        {/* Tabs */}
         <div className="border-b border-gray-700">
-          <nav className="flex -mb-px">
+          <nav className="flex -mb-px px-4">
             <button
               onClick={() => setActiveTab("review")}
-              className={`py-3 px-4 font-medium text-sm border-b-2 ${
+              className={`flex items-center gap-2 py-3 px-4 font-medium text-sm border-b-2 ${
                 activeTab === "review"
                   ? "border-indigo-500 text-indigo-400"
                   : "border-transparent text-gray-400 hover:text-gray-200"
               }`}
             >
-              Revisão
+              <FileText size={16} /> Revisão
             </button>
             <button
               onClick={() => setActiveTab("log")}
-              className={`py-3 px-4 font-medium text-sm border-b-2 ${
+              className={`flex items-center gap-2 py-3 px-4 font-medium text-sm border-b-2 ${
                 activeTab === "log"
                   ? "border-indigo-500 text-indigo-400"
                   : "border-transparent text-gray-400 hover:text-gray-200"
               }`}
             >
-              Log de Alterações
+              <History size={16} /> Log de Alterações
             </button>
           </nav>
         </div>
 
-        {/* Conteúdo */}
         <div className="p-6 flex-grow overflow-y-auto">
           {activeTab === "review" && (
             <>
-              <div className="bg-blue-900/50 text-blue-300 p-2 rounded-md text-center mb-4">
+              <div className="bg-blue-900/50 text-blue-300 p-2 rounded-md text-center mb-4 text-sm">
                 Agendado para: {dayOfWeek}, {formattedDate}
               </div>
 
-              <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="flex items-center justify-between gap-2 mb-4">
                 <div className="flex items-center gap-2">
                   {post.platforms.includes("instagram") && (
                     <Instagram size={18} />
@@ -173,7 +143,7 @@ export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
                   {post.platforms.includes("facebook") && (
                     <Facebook size={18} />
                   )}
-                  <MediaTypeTag mediaType={post.media_type} />
+                  <MediaTypeTag mediaType={post.mediaType} />
                 </div>
 
                 {userType === "client" && !isEditing && (
@@ -186,18 +156,18 @@ export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
                       <Pen size={18} />
                     </button>
                     <button
-                      onClick={() => handleApproval("approved")}
+                      onClick={() => handleApproval("agendado")}
                       className="p-2 rounded-full bg-green-500 text-white hover:bg-green-600 disabled:bg-gray-600"
                       title="Aprovar"
-                      disabled={post.approvalStatus === "approved"}
+                      disabled={post.status === "agendado"}
                     >
                       <ThumbsUp size={18} />
                     </button>
                     <button
-                      onClick={() => handleApproval("rejected")}
+                      onClick={() => handleApproval("negado")}
                       className="p-2 rounded-full bg-red-500 text-white hover:bg-red-600 disabled:bg-gray-600"
                       title="Reprovar"
-                      disabled={post.approvalStatus === "rejected"}
+                      disabled={post.status === "negado"}
                     >
                       <ThumbsDown size={18} />
                     </button>
@@ -205,102 +175,30 @@ export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
                 )}
               </div>
 
-              {/* Editor / Formulário */}
-              {isEditing ? (
-                <div className="space-y-4">
-                  {userType === "admin" && (
-                    <>
-                      <div>
-                        <label className="text-sm font-medium text-gray-300">URL da Mídia</label>
-                        <input
-                          type="text"
-                          value={editedMediaUrl}
-                          onChange={(e) => setEditedMediaUrl(e.target.value)}
-                          className="mt-1 block w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-300">Tipo de Mídia</label>
-                        <select
-                          value={editedMediaType}
-                          onChange={(e) => setEditedMediaType(e.target.value as SimulatedPost["media_type"])}
-                          className="mt-1 block w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white"
-                        >
-                          <option value="FOTO">Foto</option>
-                          <option value="REELS">Reels</option>
-                          <option value="CARROSSEL">Carrossel</option>
-                          <option value="STORY">Story</option>
-                          <option value="VIDEO">Vídeo</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-300">Plataformas</label>
-                        <div className="flex gap-4 mt-2">
-                          <label className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={editedPlatforms.includes("instagram")}
-                              onChange={() =>
-                                setEditedPlatforms((prev) =>
-                                  prev.includes("instagram")
-                                    ? prev.filter((p) => p !== "instagram")
-                                    : [...prev, "instagram"]
-                                )
-                              }
-                              className="rounded"
-                            />
-                            Instagram
-                          </label>
-                          <label className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={editedPlatforms.includes("facebook")}
-                              onChange={() =>
-                                setEditedPlatforms((prev) =>
-                                  prev.includes("facebook")
-                                    ? prev.filter((p) => p !== "facebook")
-                                    : [...prev, "facebook"]
-                                )
-                              }
-                              className="rounded"
-                            />
-                            Facebook
-                          </label>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-300">Data e Hora</label>
-                        <input
-                          type="datetime-local"
-                          value={dayjs(editedScheduledAt).format("YYYY-MM-DDTHH:mm")}
-                          onChange={(e) => setEditedScheduledAt(new Date(e.target.value).toISOString())}
-                          className="mt-1 block w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white"
-                        />
-                      </div>
-                    </>
-                  )}
-
-                  {/* Caption com números de linha */}
-                  <div>
-                    <label className="text-sm font-medium text-gray-300">Legenda</label>
-                    <div className="flex font-mono text-sm mt-1">
-                      <div className="text-right pr-2 text-gray-500 select-none">
-                        {Array.from({ length: editedCaption.split("\n").length || 1 }, (_, i) => (
+              {isEditing && userType === "client" ? (
+                <div>
+                  <div className="flex font-mono text-sm mt-1">
+                    <div className="text-right pr-2 text-gray-500 select-none pt-2">
+                      {Array.from(
+                        { length: editedCaption.split("\n").length || 1 },
+                        (_, i) => (
                           <div key={i}>{i + 1}</div>
-                        ))}
-                      </div>
-                      <textarea
-                        value={editedCaption}
-                        onChange={(e) => setEditedCaption(e.target.value)}
-                        rows={6}
-                        className="w-full p-2 bg-gray-900 rounded-md text-white border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 resize-none"
-                      />
+                        )
+                      )}
                     </div>
+                    <textarea
+                      value={editedCaption}
+                      onChange={(e) => setEditedCaption(e.target.value)}
+                      rows={8}
+                      className="w-full p-2 bg-gray-900 rounded-md text-white border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 resize-none"
+                    />
                   </div>
-
-                  <div className="flex justify-end gap-2">
+                  <div className="flex justify-end gap-2 mt-4">
                     <button
-                      onClick={() => setIsEditing(false)}
+                      onClick={() => {
+                        setIsEditing(false);
+                        setEditedCaption(post.caption);
+                      }}
                       className="flex items-center gap-1 bg-gray-600 hover:bg-gray-500 text-white py-1 px-3 rounded-md"
                     >
                       <X size={16} /> Cancelar
@@ -322,31 +220,26 @@ export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
           )}
 
           {activeTab === "log" && (
-            <div>
-              <h3 className="font-semibold text-lg mb-2 border-b border-gray-700 pb-1">
-                Histórico de Alterações
-              </h3>
-              <div className="space-y-4 max-h-64 overflow-y-auto pr-2">
-                {post.editHistory && post.editHistory.length > 0 ? (
-                  post.editHistory
-                    .slice()
-                    .reverse()
-                    .map((edit, index) => (
-                      <div key={index} className="text-sm">
-                        <p className="text-gray-500 mb-1">
-                          Alterado em:{" "}
-                          {dayjs(edit.timestamp).format("DD/MM/YYYY HH:mm")}
-                        </p>
-                        <DiffViewer
-                          oldText={edit.oldCaption}
-                          newText={edit.newCaption}
-                        />
-                      </div>
-                    ))
-                ) : (
-                  <p className="text-gray-400">Nenhuma alteração registrada.</p>
-                )}
-              </div>
+            <div className="space-y-4">
+              {post.editHistory && post.editHistory.length > 0 ? (
+                post.editHistory
+                  .slice()
+                  .reverse()
+                  .map((edit, index) => (
+                    <div key={index} className="text-sm">
+                      <p className="text-gray-500 mb-1 capitalize">
+                        Alterado por {edit.author} em:{" "}
+                        {dayjs(edit.timestamp).format("DD/MM/YYYY HH:mm")}
+                      </p>
+                      <DiffViewer
+                        oldText={edit.oldCaption}
+                        newText={edit.newCaption}
+                      />
+                    </div>
+                  ))
+              ) : (
+                <p className="text-gray-400">Nenhuma alteração registrada.</p>
+              )}
             </div>
           )}
         </div>

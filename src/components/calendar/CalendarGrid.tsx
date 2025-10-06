@@ -47,7 +47,7 @@ export default function CalendarGrid({
       <div className="grid grid-cols-7 gap-px">
         {calendarDates.map((date) => {
           const postsForDay = posts.filter((p) =>
-            dayjs(p.timestamp).isSame(date, "day")
+            dayjs(p.scheduledAt).isSame(date, "day")
           );
           return (
             <CalendarDay

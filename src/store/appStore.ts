@@ -1,42 +1,36 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
-import { Client, Post, SimulatedPost, EditHistoryItem } from "@/lib/types";
+import {
+  Client,
+  Post,
+  EditHistoryItem,
+  UserRole,
+  PostStatus,
+} from "@/lib/types";
 import { initialClients } from "./clients";
 import { v4 as uuidv4 } from "uuid";
 import dayjs from "dayjs";
 
 interface AppState {
-  user: (Client & { id: string }) | { id: "admin"; name: "Admin" } | null;
-  userType: "client" | "admin" | null;
+  user: { id: string; name: string } | null;
+  userType: UserRole | null;
   clients: Client[];
-  postsByClientId: Record<string, Post[]>;
-  fetchedClients: string[];
-  simulatedPosts: SimulatedPost[];
-  login: (
-    user: (Client & { id: string }) | { id: "admin"; name: "Admin" },
-    userType: "client" | "admin"
-  ) => void;
+  posts: Post[];
+  login: (user: { id: string; name: string }, userType: UserRole) => void;
   logout: () => void;
   updateClient: (clientId: string, updates: Partial<Client>) => void;
-  addPostsForClient: (clientId: string, posts: Post[]) => void;
-  markClientAsFetched: (clientId: string) => void;
-  addSimulatedPost: (
-    post: Omit<
-      SimulatedPost,
-      "id" | "status" | "isApproved" | "editHistory" | "approvalStatus"
+  addPost: (
+    postData: Omit<
+      Post,
+      "id" | "status" | "createdBy" | "editHistory" | "createdAt" | "updatedAt"
     >
   ) => void;
-  updateSimulatedPostsStatus: () => void;
-  updateSimulatedPostCaption: (postId: string, newCaption: string) => void;
-  updatePostApprovalStatus: (
+  updatePost: (
     postId: string,
-    status: "approved" | "rejected"
+    updates: Partial<Omit<Post, "id" | "clientId" | "editHistory">>
   ) => void;
-  updateSimulatedPost: (
-    postId: string,
-    updates: Partial<Omit<SimulatedPost, "id" | "clientId" | "editHistory">>
-  ) => void;
+  updatePostStatus: (postId: string, status: PostStatus) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -50,9 +44,7 @@ export const useAppStore = create<AppState>()(
           isVisible: true,
         })
       ),
-      postsByClientId: {},
-      fetchedClients: [],
-      simulatedPosts: [],
+      posts: [],
       login: (user, userType) => {
         set((state) => {
           state.user = user;
@@ -63,8 +55,6 @@ export const useAppStore = create<AppState>()(
         set((state) => {
           state.user = null;
           state.userType = null;
-          state.postsByClientId = {};
-          state.fetchedClients = [];
         });
       },
       updateClient: (clientId, updates) => {
@@ -75,102 +65,62 @@ export const useAppStore = create<AppState>()(
           }
         });
       },
-      addPostsForClient: (clientId, posts) => {
+      addPost: (postData) => {
         set((state) => {
-          state.postsByClientId[clientId] = posts;
-        });
-      },
-      markClientAsFetched: (clientId) => {
-        set((state) => {
-          if (!state.fetchedClients.includes(clientId)) {
-            state.fetchedClients.push(clientId);
-          }
-        });
-      },
-      addSimulatedPost: (post) => {
-        set((state) => {
-          state.simulatedPosts.push({
-            ...post,
+          const now = new Date().toISOString();
+          const newPost: Post = {
+            ...postData,
             id: uuidv4(),
-            status: "scheduled",
-            isApproved: false,
-            approvalStatus: "pending",
+            status: "aguardando_aprovacao",
+            createdBy: get().userType!,
             editHistory: [],
-          });
+            createdAt: now,
+            updatedAt: now,
+          };
+          state.posts.push(newPost);
         });
       },
-      updateSimulatedPostsStatus: () => {
+      updatePostStatus: (postId, status) => {
         set((state) => {
-          const now = dayjs();
-          state.simulatedPosts.forEach((post) => {
-            if (
-              post.status === "scheduled" &&
-              now.isAfter(dayjs(post.scheduledAt)) &&
-              post.approvalStatus === "approved"
-            ) {
-              post.status = "published";
-            }
-          });
-        });
-      },
-      updateSimulatedPostCaption: (postId, newCaption) => {
-        set((state) => {
-          const post = state.simulatedPosts.find((p) => p.id === postId);
+          const post = state.posts.find((p) => p.id === postId);
           if (post) {
-            const oldCaption = post.caption;
-            post.caption = newCaption;
-            post.approvalStatus = "pending";
-            if (!post.editHistory) {
-              post.editHistory = [];
-            }
-            post.editHistory.push({
-              oldCaption: oldCaption,
-              newCaption: newCaption,
-              timestamp: new Date().toISOString(),
-            });
+            post.status = status;
+            post.updatedAt = new Date().toISOString();
           }
         });
       },
-      updatePostApprovalStatus: (postId, status) => {
+      updatePost: (postId, updates) => {
         set((state) => {
-          const post = state.simulatedPosts.find((p) => p.id === postId);
-          if (post) {
-            post.approvalStatus = status;
-          }
-        });
-      },
-      updateSimulatedPost: (postId, updates) => {
-        set((state) => {
-          const post = state.simulatedPosts.find((p) => p.id === postId);
+          const post = state.posts.find((p) => p.id === postId);
           if (!post) return;
+          const userType = get().userType;
+          if (!userType) return;
 
-          // Track caption change to log diff-like history
-          if (typeof updates.caption === "string" && updates.caption !== post.caption) {
-            const oldCaption = post.caption || "";
-            const newCaption = updates.caption;
-            if (!post.editHistory) post.editHistory = [];
-            post.editHistory.push({
-              oldCaption: oldCaption,
-              newCaption: newCaption,
+          // Log caption changes
+          if (
+            typeof updates.caption === "string" &&
+            updates.caption !== post.caption
+          ) {
+            const edit: EditHistoryItem = {
+              author: userType,
+              oldCaption: post.caption,
+              newCaption: updates.caption,
               timestamp: new Date().toISOString(),
-            });
-            // Return to pending when caption changes
-            post.approvalStatus = "pending";
+            };
+            post.editHistory.push(edit);
+            // Re-set status to pending on client edit
+            if (userType === "client") {
+              post.status = "aguardando_aprovacao";
+            }
           }
 
-          // Apply primitive field updates
-          if (typeof updates.caption === "string") post.caption = updates.caption;
-          if (typeof updates.mediaUrl === "string") post.mediaUrl = updates.mediaUrl;
-          if (typeof updates.media_type === "string") post.media_type = updates.media_type as SimulatedPost["media_type"];
-          if (typeof updates.scheduledAt === "string") post.scheduledAt = updates.scheduledAt;
-          if (Array.isArray(updates.platforms)) post.platforms = updates.platforms;
-          if (typeof updates.status === "string") post.status = updates.status as SimulatedPost["status"];
-          if (typeof updates.approvalStatus === "string") post.approvalStatus = updates.approvalStatus as SimulatedPost["approvalStatus"];
+          Object.assign(post, updates);
+          post.updatedAt = new Date().toISOString();
         });
       },
     })),
     {
-      name: "app-storage",
+      name: "app-storage-v2", // Changed name to avoid conflicts with old structure
       storage: createJSONStorage(() => localStorage),
     }
   )

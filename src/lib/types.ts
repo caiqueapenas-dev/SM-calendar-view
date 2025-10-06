@@ -1,41 +1,28 @@
 export type PostMediaType = "FOTO" | "VIDEO" | "CARROSSEL" | "STORY" | "REELS";
+export type PostStatus = "aguardando_aprovacao" | "agendado" | "negado";
+export type UserRole = "admin" | "client";
 
 export interface EditHistoryItem {
+  author: UserRole;
   oldCaption: string;
   newCaption: string;
-  timestamp: string;
-}
-
-export interface SimulatedPost {
-  id: string;
-  clientId: string;
-  caption: string;
-  mediaUrl: string;
-  scheduledAt: string; // ISO string
-  media_type: PostMediaType;
-  platforms: ("instagram" | "facebook")[];
-  status: "scheduled" | "published";
-  approvalStatus: "pending" | "approved" | "rejected";
-  editHistory: EditHistoryItem[];
-  // Legacy flag used during creation; kept for compatibility
-  isApproved?: boolean;
+  timestamp: string; // ISO string
 }
 
 export interface Post {
-  id: string;
-  caption: string | null;
-  timestamp: string;
-  media_url: string;
-  thumbnail_url?: string;
-  status: "published" | "scheduled";
-  media_type: PostMediaType;
-  platforms: ("instagram" | "facebook")[];
+  id: string; // uuid
   clientId: string;
-  client?: Client;
-  approvalStatus: "pending" | "approved" | "rejected";
+  platforms: ("instagram" | "facebook")[];
+  mediaType: PostMediaType;
+  mediaUrl: string;
+  thumbnailUrl?: string | null;
+  caption: string;
+  scheduledAt: string; // ISO string with timezone
+  status: PostStatus;
+  createdBy: UserRole;
+  updatedAt: string; // ISO string
+  createdAt: string; // ISO string
   editHistory: EditHistoryItem[];
-  children?: { id: string; media_url: string }[];
-  permalink?: string;
 }
 
 export interface Client {

@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/store/appStore";
-import { SimulatedPost } from "@/lib/types";
-import dayjs from "dayjs";
-import PostCard from "@/components/common/PostCard";
+import { Post } from "@/lib/types";
+import { Dayjs } from "dayjs";
 import PostModal from "@/components/common/PostModal";
+import CalendarView from "@/components/calendar/CalendarView";
 import { LogOut } from "lucide-react";
 
 export default function ClientDashboardPage({
@@ -14,33 +14,21 @@ export default function ClientDashboardPage({
 }: {
   params: { clientId: string };
 }) {
-  const { clients, logout, simulatedPosts, updateSimulatedPostsStatus } =
-    useAppStore();
-
-  const [loading, setLoading] = useState(true);
-  const [selectedPost, setSelectedPost] = useState<SimulatedPost | null>(null);
+  const { clients, logout, posts } = useAppStore();
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [isModalOpen, setModalOpen] = useState(false);
   const router = useRouter();
 
   const client = clients.find((c) => c.id === params.clientId);
+  const clientPosts = posts.filter((p) => p.clientId === params.clientId);
 
-  useEffect(() => {
-    updateSimulatedPostsStatus();
-    setLoading(false);
-  }, [updateSimulatedPostsStatus]);
-
-  const clientPosts = useMemo(() => {
-    return simulatedPosts
-      .filter((p) => p.clientId === params.clientId)
-      .sort(
-        (a, b) =>
-          new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime()
-      );
-  }, [simulatedPosts, params.clientId]);
-
-  const handlePostClick = (post: SimulatedPost) => {
+  const handlePostClick = (post: Post) => {
     setSelectedPost(post);
     setModalOpen(true);
+  };
+
+  const handleDayClick = (date: Dayjs) => {
+    // Could open a summary modal, but for now, we only open posts
   };
 
   const handleLogout = () => {
@@ -48,10 +36,6 @@ export default function ClientDashboardPage({
     router.push("/");
   };
 
-  if (loading)
-    return (
-      <div className="text-center mt-20">Carregando posts do cliente...</div>
-    );
   if (!client)
     return (
       <div className="text-center mt-20 text-red-500">
@@ -69,7 +53,9 @@ export default function ClientDashboardPage({
           <h1 className="text-3xl font-bold">
             Bem-vindo, {client.customName || client.name}
           </h1>
-          <p className="text-gray-400">Aqui estão suas publicações.</p>
+          <p className="text-gray-400">
+            Aqui estão suas publicações agendadas.
+          </p>
         </div>
         <button
           onClick={handleLogout}
@@ -79,22 +65,12 @@ export default function ClientDashboardPage({
         </button>
       </header>
 
-      <div>
-        <h2 className="text-2xl font-semibold mb-4">Posts Agendados</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {clientPosts.length > 0 ? (
-            clientPosts.map((p) => (
-              <PostCard
-                key={p.id}
-                post={p}
-                onClick={() => handlePostClick(p)}
-              />
-            ))
-          ) : (
-            <p className="text-gray-400 col-span-full">Nenhum post agendado.</p>
-          )}
-        </div>
-      </div>
+      <CalendarView
+        posts={clientPosts}
+        onPostClick={handlePostClick}
+        onDayClick={handleDayClick}
+        isAdminView={false}
+      />
 
       <PostModal
         isOpen={isModalOpen}

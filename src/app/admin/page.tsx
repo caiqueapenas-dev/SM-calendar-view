@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useState } from "react";
 import { useAppStore } from "@/store/appStore";
-import { SimulatedPost } from "@/lib/types";
+import { Post } from "@/lib/types";
 import CalendarView from "@/components/calendar/CalendarView";
 import PostModal from "@/components/common/PostModal";
 import DayPostsModal from "./DayPostsModal";
@@ -11,27 +11,21 @@ import { CirclePlus as PlusCircle } from "lucide-react";
 import CreatePostModal from "./CreatePostModal";
 
 export default function AdminDashboardPage() {
-  const { clients, simulatedPosts, updateSimulatedPostsStatus } = useAppStore();
+  const { clients, posts } = useAppStore();
 
-  const [loading, setLoading] = useState(true);
-  const [selectedPost, setSelectedPost] = useState<SimulatedPost | null>(null);
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [isPostModalOpen, setPostModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
   const [isDayModalOpen, setDayModalOpen] = useState(false);
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
 
-  useEffect(() => {
-    updateSimulatedPostsStatus();
-    setLoading(false);
-  }, [updateSimulatedPostsStatus]);
-
-  const handlePostClick = (post: SimulatedPost) => {
+  const handlePostClick = (post: Post) => {
     setSelectedPost(post);
     setPostModalOpen(true);
   };
 
   const handleDayClick = (date: Dayjs) => {
-    const postsOnDay = simulatedPosts.filter((p) =>
+    const postsOnDay = posts.filter((p) =>
       dayjs(p.scheduledAt).isSame(date, "day")
     );
     if (postsOnDay.length > 0) {
@@ -39,12 +33,6 @@ export default function AdminDashboardPage() {
       setDayModalOpen(true);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="text-center mt-20">Carregando dashboard do admin...</div>
-    );
-  }
 
   return (
     <>
@@ -60,7 +48,7 @@ export default function AdminDashboardPage() {
       </div>
 
       <CalendarView
-        posts={simulatedPosts}
+        posts={posts}
         onPostClick={handlePostClick}
         onDayClick={handleDayClick}
         isAdminView={true}
@@ -76,7 +64,7 @@ export default function AdminDashboardPage() {
         isOpen={isDayModalOpen}
         onClose={() => setDayModalOpen(false)}
         date={selectedDate}
-        posts={simulatedPosts.filter(
+        posts={posts.filter(
           (p) =>
             selectedDate && dayjs(p.scheduledAt).isSame(selectedDate, "day")
         )}

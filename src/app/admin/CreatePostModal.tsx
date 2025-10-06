@@ -3,7 +3,7 @@
 import Modal from "../../components/common/Modal";
 import { useState } from "react";
 import { useAppStore } from "@/store/appStore";
-import { SimulatedPost } from "@/lib/types";
+import { Post, PostMediaType } from "@/lib/types";
 
 interface CreatePostModalProps {
   isOpen: boolean;
@@ -14,13 +14,12 @@ export default function CreatePostModal({
   isOpen,
   onClose,
 }: CreatePostModalProps) {
-  const { clients, addSimulatedPost } = useAppStore();
+  const { clients, addPost } = useAppStore();
   const [clientId, setClientId] = useState(clients[0]?.id || "");
   const [caption, setCaption] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
-  const [mediaType, setMediaType] =
-    useState<SimulatedPost["media_type"]>("FOTO");
+  const [mediaType, setMediaType] = useState<PostMediaType>("FOTO");
   const [platforms, setPlatforms] = useState<("instagram" | "facebook")[]>([]);
 
   const handlePlatformChange = (platform: "instagram" | "facebook") => {
@@ -37,12 +36,12 @@ export default function CreatePostModal({
       return;
     }
 
-    addSimulatedPost({
+    addPost({
       clientId,
       caption,
       mediaUrl,
       scheduledAt: new Date(scheduledAt).toISOString(),
-      media_type: mediaType,
+      mediaType,
       platforms,
     });
     onClose();
@@ -54,11 +53,7 @@ export default function CreatePostModal({
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Agendar Publicação Simulada"
-    >
+    <Modal isOpen={isOpen} onClose={onClose} title="Agendar Nova Publicação">
       <div className="p-6 space-y-4">
         <div>
           <label className="text-sm font-medium text-gray-300">Cliente</label>
@@ -128,15 +123,14 @@ export default function CreatePostModal({
           </label>
           <select
             value={mediaType}
-            onChange={(e) =>
-              setMediaType(e.target.value as SimulatedPost["media_type"])
-            }
+            onChange={(e) => setMediaType(e.target.value as PostMediaType)}
             className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md py-2 px-3 text-white"
           >
             <option value="FOTO">Foto</option>
             <option value="REELS">Reels</option>
             <option value="CARROSSEL">Carrossel</option>
             <option value="STORY">Story</option>
+            <option value="VIDEO">Vídeo</option>
           </select>
         </div>
         <div>

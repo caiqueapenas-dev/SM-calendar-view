@@ -1,4 +1,4 @@
-import { Post, SimulatedPost } from "@/lib/types";
+import { Post } from "@/lib/types";
 import dayjs from "dayjs";
 import "dayjs/locale/pt-br";
 import { Instagram, Facebook } from "lucide-react";
@@ -7,21 +7,21 @@ import MediaTypeTag from "./MediaTypeTag";
 dayjs.locale("pt-br");
 
 interface PostCardProps {
-  post: SimulatedPost;
+  post: Post;
   onClick: () => void;
   isAdminView?: boolean;
 }
 
 const statusStyles = {
-  pending: {
+  aguardando_aprovacao: {
     label: "Aguardando Aprovação",
     classes: "bg-yellow-500 text-yellow-900",
   },
-  approved: {
+  agendado: {
     label: "Agendado",
     classes: "bg-green-500 text-green-900",
   },
-  rejected: {
+  negado: {
     label: "Reprovado",
     classes: "bg-red-500 text-red-900",
   },
@@ -33,7 +33,7 @@ export default function PostCard({
   isAdminView = false,
 }: PostCardProps) {
   const formattedDate = dayjs(post.scheduledAt).format("DD/MM/YYYY [às] HH:mm");
-  const statusInfo = statusStyles[post.approvalStatus];
+  const statusInfo = statusStyles[post.status];
 
   const getPlatformIcons = () => {
     return (post.platforms || []).map((platform) => {
@@ -77,7 +77,7 @@ export default function PostCard({
         <p className="text-gray-400 text-xs mb-2 flex items-center">
           <span
             className={`w-2 h-2 rounded-full mr-2 ${
-              statusStyles[post.approvalStatus]?.classes.split(" ")[0]
+              statusStyles[post.status]?.classes.split(" ")[0]
             }`}
           ></span>
           {formattedDate}
@@ -89,7 +89,7 @@ export default function PostCard({
         </div>
         <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-700/50">
           <div className="flex items-center gap-2">{getPlatformIcons()}</div>
-          <MediaTypeTag mediaType={post.media_type} />
+          <MediaTypeTag mediaType={post.mediaType} />
         </div>
       </div>
     </div>
