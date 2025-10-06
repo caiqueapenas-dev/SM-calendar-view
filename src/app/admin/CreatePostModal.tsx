@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useAppStore } from "@/store/appStore";
 import { PostMediaType } from "@/lib/types";
 import { Database } from "@/lib/database.types";
-import { Loader } from "lucide-react";
+import { Loader, Calendar } from "lucide-react";
 import { Dayjs } from "dayjs";
 import dayjs from "dayjs";
 import ImageUploader from "../../components/common/ImageUploader";
@@ -40,7 +40,11 @@ export default function CreatePostModal({
     () =>
       clients
         .filter((c) => c.is_active)
-        .sort((a, b) => a.name.localeCompare(b.name)),
+        .sort((a, b) => {
+          const aDisplayName = `${a.custom_name || a.name} ${a.name}`;
+          const bDisplayName = `${b.custom_name || b.name} ${b.name}`;
+          return aDisplayName.localeCompare(bDisplayName);
+        }),
     [clients]
   );
 
@@ -53,6 +57,7 @@ export default function CreatePostModal({
 
   const [isCropperOpen, setIsCropperOpen] = useState(false);
   const [fileToCrop, setFileToCrop] = useState<MediaFile | null>(null);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   useEffect(() => {
     if (activeClients.length > 0) {
@@ -226,7 +231,7 @@ export default function CreatePostModal({
             >
               {activeClients.map((c) => (
                 <option key={c.id} value={c.client_id}>
-                  {c.custom_name || c.name}
+                  {c.custom_name ? `${c.custom_name} - ${c.name}` : c.name}
                 </option>
               ))}
             </select>
@@ -279,36 +284,40 @@ export default function CreatePostModal({
                 Plataformas
               </label>
               <div className="flex gap-4 mt-2">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={platforms.includes("instagram")}
-                    onChange={() =>
-                      setPlatforms((p) =>
-                        p.includes("instagram")
-                          ? p.filter((i) => i !== "instagram")
-                          : [...p, "instagram"]
-                      )
-                    }
-                    className="rounded"
-                  />{" "}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPlatforms((p) =>
+                      p.includes("instagram")
+                        ? p.filter((i) => i !== "instagram")
+                        : [...p, "instagram"]
+                    )
+                  }
+                  className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                    platforms.includes("instagram")
+                      ? "bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 text-white shadow-lg"
+                      : "bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600"
+                  }`}
+                >
                   Instagram
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={platforms.includes("facebook")}
-                    onChange={() =>
-                      setPlatforms((p) =>
-                        p.includes("facebook")
-                          ? p.filter((i) => i !== "facebook")
-                          : [...p, "facebook"]
-                      )
-                    }
-                    className="rounded"
-                  />{" "}
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPlatforms((p) =>
+                      p.includes("facebook")
+                        ? p.filter((i) => i !== "facebook")
+                        : [...p, "facebook"]
+                    )
+                  }
+                  className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                    platforms.includes("facebook")
+                      ? "bg-blue-600 text-white shadow-lg"
+                      : "bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600"
+                  }`}
+                >
                   Facebook
-                </label>
+                </button>
               </div>
             </div>
             <div className="flex-1">
@@ -336,13 +345,23 @@ export default function CreatePostModal({
             >
               Data e Hora do Agendamento
             </label>
-            <input
-              id="scheduledAtInput"
-              type="datetime-local"
-              value={scheduledAt}
-              onChange={(e) => setScheduledAt(e.target.value)}
-              className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md py-2 px-3 text-white cursor-pointer"
-            />
+            <div className="relative">
+              <input
+                id="scheduledAtInput"
+                type="datetime-local"
+                value={scheduledAt}
+                onChange={(e) => setScheduledAt(e.target.value)}
+                className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md py-2 px-3 text-white cursor-pointer pr-10"
+                onClick={() => setIsCalendarOpen(true)}
+              />
+              <button
+                type="button"
+                onClick={() => setIsCalendarOpen(true)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+              >
+                <Calendar size={20} />
+              </button>
+            </div>
           </div>
 
           <div className="flex justify-end gap-3 pt-4">
@@ -375,6 +394,58 @@ export default function CreatePostModal({
           imageSrc={fileToCrop.url}
           onCropComplete={handleCropComplete}
         />
+      )}
+
+      {isCalendarOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-96">
+            <h3 className="text-lg font-semibold text-white mb-4">Selecionar Data</h3>
+            <div className="grid grid-cols-7 gap-2 mb-4">
+              {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => (
+                <div key={day} className="text-center text-sm text-gray-400 py-2">
+                  {day}
+                </div>
+              ))}
+              {Array.from({ length: 35 }, (_, i) => {
+                const date = dayjs().startOf('month').add(i - dayjs().startOf('month').day(), 'day');
+                const isCurrentMonth = date.month() === dayjs().month();
+                const isToday = date.isSame(dayjs(), 'day');
+                const isSelected = scheduledAt && dayjs(scheduledAt).isSame(date, 'day');
+                
+                return (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      const currentTime = scheduledAt ? dayjs(scheduledAt) : dayjs().hour(10).minute(0);
+                      const newDateTime = date.hour(currentTime.hour()).minute(currentTime.minute());
+                      setScheduledAt(newDateTime.format("YYYY-MM-DDTHH:mm"));
+                      setIsCalendarOpen(false);
+                    }}
+                    className={`p-2 text-sm rounded ${
+                      isCurrentMonth
+                        ? isSelected
+                          ? 'bg-indigo-600 text-white'
+                          : isToday
+                          ? 'bg-indigo-100 text-indigo-800'
+                          : 'text-white hover:bg-gray-700'
+                        : 'text-gray-600'
+                    }`}
+                  >
+                    {date.date()}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setIsCalendarOpen(false)}
+                className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

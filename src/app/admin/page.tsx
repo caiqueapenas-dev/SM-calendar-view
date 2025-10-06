@@ -23,11 +23,12 @@ export default function AdminDashboardPage() {
   const [defaultCreateDate, setDefaultCreateDate] = useState<Dayjs | null>(
     null
   );
+  const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
 
   const activeClients = clients.filter((c) => c.is_active);
-  const activeClientIds = activeClients.map((c) => c.client_id);
+  const filteredClientIds = selectedClientIds.length > 0 ? selectedClientIds : activeClients.map((c) => c.client_id);
   const postsOfActiveClients = posts.filter((p) =>
-    activeClientIds.includes(p.client_id)
+    filteredClientIds.includes(p.client_id)
   );
 
   const handlePostClick = (post: PostRow) => {
@@ -61,17 +62,55 @@ export default function AdminDashboardPage() {
     setCreateModalOpen(true);
   };
 
+  const handleClientFilterChange = (clientId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedClientIds(prev => [...prev, clientId]);
+    } else {
+      setSelectedClientIds(prev => prev.filter(id => id !== clientId));
+    }
+  };
+
   return (
     <>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Dashboard Geral</h1>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-4xl font-bold">Dashboard Geral</h1>
         <button
           onClick={openCreateModal}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg"
+          className="flex items-center gap-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl text-lg transition-colors"
         >
-          <PlusCircle size={20} />
+          <PlusCircle size={24} />
           Agendar Post
         </button>
+      </div>
+
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold text-gray-300 mb-3">Filtrar por Cliente</h3>
+        <div className="flex flex-wrap gap-3">
+          {activeClients.map((client) => (
+            <label
+              key={client.client_id}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 cursor-pointer transition-colors"
+            >
+              <input
+                type="checkbox"
+                checked={selectedClientIds.includes(client.client_id)}
+                onChange={(e) => handleClientFilterChange(client.client_id, e.target.checked)}
+                className="rounded"
+              />
+              <span className="text-white">
+                {client.custom_name ? `${client.custom_name} - ${client.name}` : client.name}
+              </span>
+            </label>
+          ))}
+        </div>
+        {selectedClientIds.length > 0 && (
+          <button
+            onClick={() => setSelectedClientIds([])}
+            className="mt-3 text-sm text-indigo-400 hover:text-indigo-300"
+          >
+            Limpar filtros
+          </button>
+        )}
       </div>
 
       <CalendarView

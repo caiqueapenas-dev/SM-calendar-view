@@ -6,6 +6,7 @@ import { Database } from "@/lib/database.types";
 import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useAppStore } from "@/store/appStore";
 
 type PostRow = Database["public"]["Tables"]["posts"]["Row"];
 type ClientRow = Database["public"]["Tables"]["clients"]["Row"];
@@ -27,6 +28,24 @@ const DraggablePost = ({
     transition,
   };
 
+  // Get thumbnail or first media URL
+  const getThumbnailUrl = () => {
+    if (post.thumbnail_url) {
+      return post.thumbnail_url;
+    }
+    
+    if (post.media_type === "CARROSSEL") {
+      try {
+        const mediaUrls = JSON.parse(post.media_url);
+        return Array.isArray(mediaUrls) ? mediaUrls[0] : post.media_url;
+      } catch {
+        return post.media_url;
+      }
+    }
+    
+    return post.media_url;
+  };
+
   return (
     <div
       ref={setNodeRef}
@@ -36,15 +55,9 @@ const DraggablePost = ({
       className="relative cursor-grab active:cursor-grabbing"
     >
       <img
-        src={
-          client?.profile_picture_url ||
-          `https://ui-avatars.com/api/?name=${client?.name.substring(
-            0,
-            2
-          )}&background=random`
-        }
-        alt={client?.name}
-        className="w-8 h-8 rounded-full"
+        src={getThumbnailUrl()}
+        alt={`Post de ${client?.name}`}
+        className="w-8 h-8 rounded object-cover"
       />
     </div>
   );
@@ -69,10 +82,24 @@ export default function CalendarDay({
   isAdminView,
   clients,
 }: CalendarDayProps) {
+  const { specialDates } = useAppStore();
   const { isOver, setNodeRef } = useDroppable({
     id: date.toISOString(), // A data se torna o ID da área de soltar
   });
   const isToday = date.isSame(dayjs(), "day");
+
+  // Get special dates for this day
+  const daySpecialDates = specialDates.filter(sd => {
+    const specialDate = dayjs(sd.date);
+    if (sd.is_recurring) {
+      if (sd.recurrence_type === "yearly") {
+        return specialDate.month() === date.month() && specialDate.date() === date.date();
+      } else if (sd.recurrence_type === "monthly") {
+        return specialDate.date() === date.date();
+      }
+    }
+    return specialDate.isSame(date, "day");
+  });
 
   return (
     <div
@@ -98,7 +125,7 @@ export default function CalendarDay({
       </span>
 
       <div className="flex flex-wrap gap-1">
-        {posts.map((post) =>
+        {posts.slice(0, 2).map((post) =>
           isAdminView ? (
             <DraggablePost key={post.id} post={post} clients={clients} />
           ) : (
@@ -113,6 +140,40 @@ export default function CalendarDay({
               <MediaTypeTag mediaType={post.media_type as PostMediaType} />
             </div>
           )
+        )}
+        {posts.length > 2 && (
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              onDayClick();
+            }}
+            className="px-2 py-1 bg-gray-600 text-xs text-gray-300 rounded hover:bg-gray-500 cursor-pointer"
+          >
+            ver mais {posts.length - 2}
+          </div>
+        )}
+        
+        {/* Special dates badges */}
+        {daySpecialDates.length > 0 && (
+          <div className="mt-1 space-y-1">
+            {daySpecialDates.slice(0, 2).map((specialDate) => {
+              const client = clients.find(c => c.client_id === specialDate.client_id);
+              return (
+                <div
+                  key={specialDate.id}
+                  className="px-2 py-1 bg-green-600 text-white text-xs rounded-full truncate"
+                  title={`${specialDate.title} - ${client?.name || 'Cliente'}`}
+                >
+                  🎉 {specialDate.title}
+                </div>
+              );
+            })}
+            {daySpecialDates.length > 2 && (
+              <div className="px-2 py-1 bg-green-700 text-white text-xs rounded-full">
+                +{daySpecialDates.length - 2} eventos
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>

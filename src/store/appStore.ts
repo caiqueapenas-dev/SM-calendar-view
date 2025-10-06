@@ -23,6 +23,18 @@ export interface Notification {
   read: boolean;
 }
 
+interface SpecialDate {
+  id: string;
+  client_id: string;
+  title: string;
+  description?: string;
+  date: string;
+  is_recurring: boolean;
+  recurrence_type?: "monthly" | "yearly";
+  created_at: string;
+  updated_at: string;
+}
+
 interface AppState {
   session: Session | null;
   user: User | null;
@@ -30,12 +42,14 @@ interface AppState {
   clients: ClientRow[];
   posts: PostRow[];
   notifications: Notification[];
+  specialDates: SpecialDate[];
   isLoading: boolean;
   setSession: (session: Session | null) => void;
   logout: () => Promise<void>;
   fetchClients: () => Promise<void>;
   updateClient: (clientId: string, updates: ClientUpdate) => Promise<void>;
   fetchPosts: () => Promise<void>;
+  fetchSpecialDates: () => Promise<void>;
   generateNotifications: () => void;
   markNotificationAsRead: (notificationId: string) => void;
   addPost: (
@@ -54,6 +68,7 @@ export const useAppStore = create<AppState>()(
     clients: [],
     posts: [],
     notifications: [],
+    specialDates: [],
     isLoading: true,
 
     setSession: (session) => {
@@ -115,12 +130,26 @@ export const useAppStore = create<AppState>()(
       set({ posts: data || [], isLoading: false });
     },
 
-    generateNotifications: () => {
-      const { posts, clients } = get();
-      const newNotifications: Notification[] = [];
+    fetchSpecialDates: async () => {
+      const { data, error } = await supabase
+        .from("special_dates")
+        .select("*")
+        .order("date", { ascending: true });
+      if (error) {
+        console.error("Error fetching special dates:", error);
+        return;
+      }
+      set({ specialDates: data || [] });
+    },
+
+    generateNotifications: async () => {
+      const { posts, clients, user } = get();
+      if (!user) return;
+      
       const now = dayjs();
 
-      posts.forEach((post) => {
+      // Generate approval reminders
+      for (const post of posts) {
         if (post.status === "aguardando_aprovacao") {
           const scheduledDate = dayjs(post.scheduled_at);
           const daysUntilDue = scheduledDate.diff(now, "day");
@@ -132,21 +161,32 @@ export const useAppStore = create<AppState>()(
           else if (daysUntilDue <= 5 && daysUntilDue > 3) urgency = "low";
 
           if (urgency) {
-            newNotifications.push({
-              id: `approval-${post.id}-${daysUntilDue}`,
-              type: "approval_reminder",
-              clientId: post.client_id,
-              postId: post.id,
-              message: `Aprovação pendente para post de ${
-                client?.name || "Cliente"
-              } agendado para ${scheduledDate.format("DD/MM")}.`,
-              urgency,
-              createdAt: new Date().toISOString(),
-              read: false,
-            });
+            const notificationId = `approval-${post.id}-${daysUntilDue}`;
+            
+            // Check if notification already exists
+            const { data: existingNotification } = await supabase
+              .from("notifications")
+              .select("id")
+              .eq("id", notificationId)
+              .single();
+
+            if (!existingNotification) {
+              await supabase.from("notifications").insert({
+                id: notificationId,
+                type: "approval_reminder",
+                client_id: post.client_id,
+                post_id: post.id,
+                message: `Aprovação pendente para post de ${
+                  client?.name || "Cliente"
+                } agendado para ${scheduledDate.format("DD/MM")}.`,
+                urgency,
+                user_id: user.id,
+              });
+            }
           }
         }
 
+        // Generate client edit notifications
         const lastEdit = Array.isArray(post.edit_history)
           ? (post.edit_history[post.edit_history.length - 1] as any)
           : null;
@@ -154,33 +194,70 @@ export const useAppStore = create<AppState>()(
           const editDate = dayjs(lastEdit.timestamp);
           if (now.diff(editDate, "hour") <= 24) {
             const client = clients.find((c) => c.client_id === post.client_id);
-            newNotifications.push({
-              id: `edit-${post.id}-${lastEdit.timestamp}`,
-              type: "client_edit",
-              clientId: post.client_id,
-              postId: post.id,
-              message: `${
-                client?.name || "Cliente"
-              } alterou a legenda de um post.`,
-              urgency: "low",
-              createdAt: lastEdit.timestamp,
-              read: false,
-            });
+            const notificationId = `edit-${post.id}-${lastEdit.timestamp}`;
+            
+            // Check if notification already exists
+            const { data: existingNotification } = await supabase
+              .from("notifications")
+              .select("id")
+              .eq("id", notificationId)
+              .single();
+
+            if (!existingNotification) {
+              await supabase.from("notifications").insert({
+                id: notificationId,
+                type: "client_edit",
+                client_id: post.client_id,
+                post_id: post.id,
+                message: `${
+                  client?.name || "Cliente"
+                } alterou a legenda de um post.`,
+                urgency: "low",
+                user_id: user.id,
+              });
+            }
           }
         }
-      });
+      }
 
-      const readNotifications = get().notifications.filter((n) => n.read);
-      const unreadIds = new Set(readNotifications.map((n) => n.id));
-      const finalNotifications = [
-        ...newNotifications.filter((n) => !unreadIds.has(n.id)),
-        ...readNotifications,
-      ];
+      // Fetch updated notifications
+      const { data: notifications } = await supabase
+        .from("notifications")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
 
-      set({ notifications: finalNotifications });
+      if (notifications) {
+        set({ notifications: notifications.map(n => ({
+          id: n.id,
+          type: n.type as "approval_reminder" | "client_edit",
+          clientId: n.client_id,
+          postId: n.post_id,
+          message: n.message,
+          urgency: n.urgency as "low" | "medium" | "high",
+          createdAt: n.created_at,
+          read: n.read,
+        })) });
+      }
     },
 
-    markNotificationAsRead: (notificationId) => {
+    markNotificationAsRead: async (notificationId) => {
+      const { user } = get();
+      if (!user) return;
+
+      // Update in database
+      const { error } = await supabase
+        .from("notifications")
+        .update({ read: true })
+        .eq("id", notificationId)
+        .eq("user_id", user.id);
+
+      if (error) {
+        console.error("Error marking notification as read:", error);
+        return;
+      }
+
+      // Update local state
       set((state) => {
         const notification = state.notifications.find(
           (n) => n.id === notificationId
