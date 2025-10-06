@@ -6,7 +6,7 @@ import CalendarView from "@/components/calendar/CalendarView";
 import PostModal from "@/components/common/PostModal";
 import DayPostsModal from "./DayPostsModal";
 import dayjs, { Dayjs } from "dayjs";
-import { PlusCircle } from "lucide-react"; // O nome importado (ou renomeado) é PlusCircle
+import { PlusCircle } from "lucide-react";
 import CreatePostModal from "./CreatePostModal";
 import { Database } from "@/lib/database.types";
 
@@ -24,6 +24,13 @@ export default function AdminDashboardPage() {
     null
   );
 
+  // Filtra clientes ativos para exibir no calendário
+  const activeClients = clients.filter((c) => c.is_active);
+  const activeClientIds = activeClients.map((c) => c.client_id);
+  const postsOfActiveClients = posts.filter((p) =>
+    activeClientIds.includes(p.client_id)
+  );
+
   const handlePostClick = (post: PostRow) => {
     setDayModalOpen(false);
     setSelectedPost(post);
@@ -31,10 +38,12 @@ export default function AdminDashboardPage() {
   };
 
   const handleDayClick = (date: Dayjs) => {
-    const postsOnDay = posts.filter((p) =>
+    const postsOnDay = postsOfActiveClients.filter((p) =>
       dayjs(p.scheduled_at).isSame(date, "day")
     );
 
+    // Se não houver posts, abre o modal de criação com a data pré-selecionada.
+    // Senão, abre o modal de visualização dos posts do dia.
     if (postsOnDay.length === 0) {
       setDefaultCreateDate(date);
       setCreateModalOpen(true);
@@ -63,14 +72,13 @@ export default function AdminDashboardPage() {
           onClick={openCreateModal}
           className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg"
         >
-          {/* CORREÇÃO: Usando o nome correto 'PlusCircle' */}
           <PlusCircle size={20} />
           Agendar Post
         </button>
       </div>
 
       <CalendarView
-        posts={posts}
+        posts={postsOfActiveClients} // Mostra apenas posts de clientes ativos
         onPostClick={handlePostClick}
         onDayClick={handleDayClick}
         isAdminView={true}
