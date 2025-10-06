@@ -24,7 +24,6 @@ export default function AdminDashboardPage() {
     null
   );
 
-  // Filtra clientes ativos para exibir no calendário
   const activeClients = clients.filter((c) => c.is_active);
   const activeClientIds = activeClients.map((c) => c.client_id);
   const postsOfActiveClients = posts.filter((p) =>
@@ -42,8 +41,6 @@ export default function AdminDashboardPage() {
       dayjs(p.scheduled_at).isSame(date, "day")
     );
 
-    // Se não houver posts, abre o modal de criação com a data pré-selecionada.
-    // Senão, abre o modal de visualização dos posts do dia.
     if (postsOnDay.length === 0) {
       setDefaultCreateDate(date);
       setCreateModalOpen(true);
@@ -78,7 +75,7 @@ export default function AdminDashboardPage() {
       </div>
 
       <CalendarView
-        posts={postsOfActiveClients} // Mostra apenas posts de clientes ativos
+        posts={postsOfActiveClients}
         onPostClick={handlePostClick}
         onDayClick={handleDayClick}
         isAdminView={true}

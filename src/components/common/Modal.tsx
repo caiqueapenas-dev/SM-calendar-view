@@ -1,5 +1,7 @@
+"use client";
+
 import { X } from "lucide-react";
-import React from "react";
+import React, { useRef } from "react";
 
 interface ModalProps {
   isOpen: boolean;
@@ -14,16 +16,38 @@ export default function Modal({
   children,
   title,
 }: ModalProps) {
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // Previne o fechamento do modal quando o clique é arrastado para fora.
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === overlayRef.current) {
+      contentRef.current?.setAttribute("data-clicked-overlay", "true");
+    }
+  };
+
+  const handleMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (
+      e.target === overlayRef.current &&
+      contentRef.current?.getAttribute("data-clicked-overlay") === "true"
+    ) {
+      onClose();
+    }
+    contentRef.current?.removeAttribute("data-clicked-overlay");
+  };
+
   if (!isOpen) return null;
 
   return (
     <div
+      ref={overlayRef}
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      onClick={onClose}
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
     >
       <div
+        ref={contentRef}
         className="bg-gray-800 rounded-lg shadow-xl w-full max-w-lg flex flex-col max-h-[90vh]"
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center p-4 border-b border-gray-700">
           <h2 className="text-lg font-semibold">{title}</h2>

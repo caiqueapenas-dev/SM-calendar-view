@@ -18,7 +18,7 @@ export default function AdminLayout({
     logout,
     fetchPosts,
     fetchClients,
-    listenToChanges, // CORREÇÃO: Usando a função unificada
+    listenToChanges,
     isLoading,
     generateNotifications,
     notifications,
@@ -31,7 +31,7 @@ export default function AdminLayout({
       generateNotifications();
     });
 
-    const unsubscribe = listenToChanges(); // CORREÇÃO: Chamando a função unificada
+    const unsubscribe = listenToChanges();
 
     const interval = setInterval(generateNotifications, 60000);
 

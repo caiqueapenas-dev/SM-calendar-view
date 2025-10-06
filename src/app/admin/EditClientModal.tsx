@@ -28,34 +28,78 @@ export default function EditClientModal({
   const [customName, setCustomName] = useState(client.custom_name || "");
   const [category, setCategory] = useState(client.category || "");
   const [instagram, setInstagram] = useState(client.instagram_handle || "");
+
   const [pfpUrl, setPfpUrl] = useState(client.profile_picture_url || "");
+  const [newPfpFile, setNewPfpFile] = useState<File | null>(null);
 
   useEffect(() => {
-    setName(client.name);
-    setCustomName(client.custom_name || "");
-    setCategory(client.category || "");
-    setInstagram(client.instagram_handle || "");
-    setPfpUrl(client.profile_picture_url || "");
-  }, [client]);
+    if (isOpen) {
+      setName(client.name);
+      setCustomName(client.custom_name || "");
+      setCategory(client.category || "");
+      setInstagram(client.instagram_handle || "");
+      setPfpUrl(client.profile_picture_url || "");
+      setNewPfpFile(null);
+    }
+  }, [client, isOpen]);
+
+  const uploadFileToCloudinary = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append(
+      "upload_preset",
+      process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!
+    );
+    const response = await fetch(
+      `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
+      {
+        method: "POST",
+        body: formData,
+      }
+    );
+    if (!response.ok) throw new Error("Falha no upload da foto de perfil.");
+    const data = await response.json();
+    return data.secure_url;
+  };
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      let finalPfpUrl = pfpUrl;
+
+      if (newPfpFile) {
+        finalPfpUrl = await uploadFileToCloudinary(newPfpFile);
+      }
+
       const updates: ClientUpdate = {
         name,
         custom_name: customName,
         category,
         instagram_handle: instagram,
-        profile_picture_url: pfpUrl,
+        profile_picture_url: finalPfpUrl,
       };
       await updateClient(client.id, updates);
       alert("Cliente atualizado com sucesso!");
       onClose();
     } catch (e) {
+      console.error(e);
       alert("Falha ao atualizar o cliente.");
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleFileSelected = (files: File[]) => {
+    const file = files[0];
+    if (file) {
+      setNewPfpFile(file);
+      setPfpUrl(URL.createObjectURL(file));
+    }
+  };
+
+  const handleFileRemoved = () => {
+    setNewPfpFile(null);
+    setPfpUrl("");
   };
 
   return (
@@ -66,7 +110,13 @@ export default function EditClientModal({
             Foto de Perfil
           </label>
           <div className="mt-1">
-            <ImageUploader mediaUrl={pfpUrl} onUploadSuccess={setPfpUrl} />
+            <ImageUploader
+              previewUrl={pfpUrl}
+              onFilesAdded={handleFileSelected}
+              onFileRemoved={handleFileRemoved}
+              allowMultiple={false}
+              mediaCount={pfpUrl ? 1 : 0}
+            />
           </div>
         </div>
         <div>

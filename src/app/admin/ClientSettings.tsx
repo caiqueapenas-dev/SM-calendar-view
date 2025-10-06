@@ -3,7 +3,7 @@ import { useAppStore } from "@/store/appStore";
 import { useState, useMemo } from "react";
 import { Edit, Eye, EyeOff } from "lucide-react";
 import { Database } from "@/lib/database.types";
-import EditClientModal from "./EditClientModal"; // Novo modal de edição
+import EditClientModal from "./EditClientModal";
 
 type ClientRow = Database["public"]["Tables"]["clients"]["Row"];
 

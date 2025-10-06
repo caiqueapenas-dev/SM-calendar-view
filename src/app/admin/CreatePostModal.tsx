@@ -1,7 +1,7 @@
 "use client";
 
 import Modal from "../../components/common/Modal";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAppStore } from "@/store/appStore";
 import { PostMediaType } from "@/lib/types";
 import { Database } from "@/lib/database.types";
@@ -9,6 +9,9 @@ import { Loader } from "lucide-react";
 import { Dayjs } from "dayjs";
 import dayjs from "dayjs";
 import ImageUploader from "../../components/common/ImageUploader";
+import DraggableThumbnails from "../../components/common/DraggableThumbnails";
+import ImageCropperModal from "../../components/common/ImageCropperModal";
+import { v4 as uuidv4 } from "uuid";
 
 type PostInsert = Database["public"]["Tables"]["posts"]["Insert"];
 
@@ -18,6 +21,12 @@ interface CreatePostModalProps {
   defaultDate?: Dayjs | null;
 }
 
+interface MediaFile {
+  id: string;
+  file: File;
+  url: string;
+}
+
 export default function CreatePostModal({
   isOpen,
   onClose,
@@ -25,64 +34,135 @@ export default function CreatePostModal({
 }: CreatePostModalProps) {
   const { clients, addPost } = useAppStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  const activeClients = clients.filter((c) => c.is_active);
-  const [clientId, setClientId] = useState(
-    activeClients.length > 0 ? activeClients[0].client_id : ""
+  const activeClients = useMemo(
+    () =>
+      clients
+        .filter((c) => c.is_active)
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [clients]
   );
+
+  const [clientId, setClientId] = useState("");
   const [caption, setCaption] = useState("");
-  const [mediaUrl, setMediaUrl] = useState("");
+  const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
   const [scheduledAt, setScheduledAt] = useState("");
   const [mediaType, setMediaType] = useState<PostMediaType>("FOTO");
   const [platforms, setPlatforms] = useState<("instagram" | "facebook")[]>([]);
 
+  const [isCropperOpen, setIsCropperOpen] = useState(false);
+  const [fileToCrop, setFileToCrop] = useState<MediaFile | null>(null);
+
+  useEffect(() => {
+    if (activeClients.length > 0) {
+      setClientId(activeClients[0].client_id);
+    }
+  }, [clients, isOpen]);
+
   useEffect(() => {
     if (isOpen) {
       const dateToSet = defaultDate || dayjs();
-      const formattedDate = dateToSet
-        .hour(10)
-        .minute(0)
-        .second(0)
-        .format("YYYY-MM-DDTHH:mm");
-      setScheduledAt(formattedDate);
+      setScheduledAt(
+        dateToSet.hour(10).minute(0).second(0).format("YYYY-MM-DDTHH:mm")
+      );
     } else {
       resetForm();
     }
   }, [isOpen, defaultDate]);
 
-  // Atualiza o cliente selecionado se a lista de clientes mudar
   useEffect(() => {
-    const activeClients = clients.filter((c) => c.is_active);
-    if (
-      activeClients.length > 0 &&
-      !activeClients.find((c) => c.client_id === clientId)
-    ) {
-      setClientId(activeClients[0].client_id);
-    }
-  }, [clients]);
+    setHasUnsavedChanges(caption !== "" || mediaFiles.length > 0);
+  }, [caption, mediaFiles]);
 
   const resetForm = () => {
     setCaption("");
-    setMediaUrl("");
+    setMediaFiles([]);
     setScheduledAt("");
     setPlatforms([]);
     setMediaType("FOTO");
-    const activeClients = clients.filter((c) => c.is_active);
-    if (activeClients.length > 0) {
-      setClientId(activeClients[0].client_id);
-    }
+    if (activeClients.length > 0) setClientId(activeClients[0].client_id);
+    setHasUnsavedChanges(false);
   };
 
-  const handlePlatformChange = (platform: "instagram" | "facebook") => {
-    setPlatforms((prev) =>
-      prev.includes(platform)
-        ? prev.filter((p) => p !== platform)
-        : [...prev, platform]
+  const handleClose = () => {
+    if (
+      hasUnsavedChanges &&
+      !window.confirm("Você tem alterações não salvas. Deseja descartá-las?")
+    ) {
+      return;
+    }
+    onClose();
+  };
+
+  const handleFilesAdded = (files: File[]) => {
+    const newMediaFiles = files.map((file) => ({
+      id: uuidv4(),
+      file,
+      url: URL.createObjectURL(file),
+    }));
+    setMediaFiles((prev) => [...prev, ...newMediaFiles]);
+  };
+
+  const removeMediaFile = (id: string) =>
+    setMediaFiles((prev) => prev.filter((mf) => mf.id !== id));
+
+  const reorderMediaFiles = (reorderedItems: { id: string; url: string }[]) => {
+    setMediaFiles((prev) =>
+      reorderedItems.map((item) => prev.find((mf) => mf.id === item.id)!)
     );
   };
 
+  const openCropper = (id: string) => {
+    const file = mediaFiles.find((mf) => mf.id === id);
+    if (file) {
+      setFileToCrop(file);
+      setIsCropperOpen(true);
+    }
+  };
+
+  const handleCropComplete = (croppedFile: File) => {
+    if (!fileToCrop) return;
+    setMediaFiles((prev) =>
+      prev.map((mf) =>
+        mf.id === fileToCrop.id
+          ? { ...mf, file: croppedFile, url: URL.createObjectURL(croppedFile) }
+          : mf
+      )
+    );
+    setFileToCrop(null);
+    setIsCropperOpen(false);
+  };
+
+  const uploadFileToCloudinary = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append(
+      "upload_preset",
+      process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!
+    );
+
+    const resourceType = file.type.startsWith("video") ? "video" : "image";
+
+    const response = await fetch(
+      `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`,
+      {
+        method: "POST",
+        body: formData,
+      }
+    );
+    if (!response.ok) throw new Error("Falha no upload para o Cloudinary.");
+    const data = await response.json();
+    return data.secure_url;
+  };
+
   const handleSubmit = async () => {
-    if (!clientId || !mediaUrl || !scheduledAt || platforms.length === 0) {
+    if (
+      !clientId ||
+      mediaFiles.length === 0 ||
+      !scheduledAt ||
+      platforms.length === 0
+    ) {
       alert(
         "Por favor, preencha todos os campos obrigatórios (Mídia, Cliente, Data e Plataforma)."
       );
@@ -91,13 +171,20 @@ export default function CreatePostModal({
 
     setIsSubmitting(true);
     try {
+      const uploadedUrls = await Promise.all(
+        mediaFiles.map((mf) => uploadFileToCloudinary(mf.file))
+      );
+
       const postData: Omit<
         PostInsert,
         "status" | "created_by" | "edit_history"
       > = {
         client_id: clientId,
         caption,
-        media_url: mediaUrl,
+        media_url:
+          mediaType === "CARROSSEL"
+            ? JSON.stringify(uploadedUrls)
+            : uploadedUrls[0],
         scheduled_at: new Date(scheduledAt).toISOString(),
         media_type: mediaType,
         platforms,
@@ -111,121 +198,182 @@ export default function CreatePostModal({
       } else {
         alert("Ocorreu um erro ao agendar o post.");
       }
+    } catch (e) {
+      console.error(e);
+      alert("Ocorreu um erro durante o upload das mídias.");
     } finally {
       setIsSubmitting(false);
     }
   };
+  const isCarousel = mediaType === "CARROSSEL";
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Agendar Nova Publicação">
-      <div className="p-6 space-y-4">
-        <div>
-          <label className="text-sm font-medium text-gray-300">Cliente</label>
-          <select
-            value={clientId}
-            onChange={(e) => setClientId(e.target.value)}
-            className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md py-2 px-3 text-white"
-          >
-            {activeClients.map((c) => (
-              <option key={c.id} value={c.client_id}>
-                {c.custom_name || c.name}
-              </option>
-            ))}
-          </select>
-        </div>
+    <>
+      <Modal
+        isOpen={isOpen}
+        onClose={handleClose}
+        title="Agendar Nova Publicação"
+      >
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="text-sm font-medium text-gray-300">Cliente</label>
+            <select
+              value={clientId}
+              onChange={(e) => setClientId(e.target.value)}
+              className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md py-2 px-3 text-white"
+            >
+              {activeClients.map((c) => (
+                <option key={c.id} value={c.client_id}>
+                  {c.custom_name || c.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        <div>
-          <label className="text-sm font-medium text-gray-300">Mídia</label>
-          <div className="mt-1">
-            <ImageUploader
-              mediaUrl={mediaUrl}
-              onUploadSuccess={(url) => setMediaUrl(url)}
+          {(mediaFiles.length === 0 || isCarousel) && (
+            <div>
+              <label className="text-sm font-medium text-gray-300">Mídia</label>
+              <div className="mt-1">
+                <ImageUploader
+                  onFilesAdded={handleFilesAdded}
+                  allowMultiple={isCarousel}
+                  mediaCount={mediaFiles.length}
+                />
+              </div>
+            </div>
+          )}
+
+          {mediaFiles.length > 0 && (
+            <div>
+              <label className="text-sm font-medium text-gray-300">
+                {isCarousel
+                  ? "Ordem do Carrossel (arraste para reordenar)"
+                  : "Mídia"}
+              </label>
+              <div className="mt-2 p-2 bg-gray-900/50 rounded-md">
+                <DraggableThumbnails
+                  items={mediaFiles.map((mf) => ({ id: mf.id, url: mf.url }))}
+                  setItems={reorderMediaFiles}
+                  onRemove={removeMediaFile}
+                  onCrop={openCropper}
+                />
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="text-sm font-medium text-gray-300">Legenda</label>
+            <textarea
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              rows={4}
+              className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md py-2 px-3 text-white"
+            ></textarea>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <label className="text-sm font-medium text-gray-300">
+                Plataformas
+              </label>
+              <div className="flex gap-4 mt-2">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={platforms.includes("instagram")}
+                    onChange={() =>
+                      setPlatforms((p) =>
+                        p.includes("instagram")
+                          ? p.filter((i) => i !== "instagram")
+                          : [...p, "instagram"]
+                      )
+                    }
+                    className="rounded"
+                  />{" "}
+                  Instagram
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={platforms.includes("facebook")}
+                    onChange={() =>
+                      setPlatforms((p) =>
+                        p.includes("facebook")
+                          ? p.filter((i) => i !== "facebook")
+                          : [...p, "facebook"]
+                      )
+                    }
+                    className="rounded"
+                  />{" "}
+                  Facebook
+                </label>
+              </div>
+            </div>
+            <div className="flex-1">
+              <label className="text-sm font-medium text-gray-300">
+                Tipo de Mídia
+              </label>
+              <select
+                value={mediaType}
+                onChange={(e) => setMediaType(e.target.value as PostMediaType)}
+                className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md py-2 px-3 text-white"
+              >
+                <option value="FOTO">Foto</option>
+                <option value="VIDEO">Vídeo</option>
+                <option value="REELS">Reels</option>
+                <option value="CARROSSEL">Carrossel</option>
+                <option value="STORY">Story</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label
+              htmlFor="scheduledAtInput"
+              className="text-sm font-medium text-gray-300"
+            >
+              Data e Hora do Agendamento
+            </label>
+            <input
+              id="scheduledAtInput"
+              type="datetime-local"
+              value={scheduledAt}
+              onChange={(e) => setScheduledAt(e.target.value)}
+              className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md py-2 px-3 text-white cursor-pointer"
             />
           </div>
-        </div>
 
-        <div>
-          <label className="text-sm font-medium text-gray-300">Legenda</label>
-          <textarea
-            value={caption}
-            onChange={(e) => setCaption(e.target.value)}
-            rows={4}
-            className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md py-2 px-3 text-white"
-          ></textarea>
-        </div>
-        <div>
-          <label className="text-sm font-medium text-gray-300">
-            Plataformas
-          </label>
-          <div className="flex gap-4 mt-2">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={platforms.includes("instagram")}
-                onChange={() => handlePlatformChange("instagram")}
-                className="rounded"
-              />
-              Instagram
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={platforms.includes("facebook")}
-                onChange={() => handlePlatformChange("facebook")}
-                className="rounded"
-              />
-              Facebook
-            </label>
+          <div className="flex justify-end gap-3 pt-4">
+            <button
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center w-32 disabled:bg-indigo-800"
+            >
+              {isSubmitting ? (
+                <Loader className="animate-spin" size={20} />
+              ) : (
+                "Agendar"
+              )}
+            </button>
           </div>
         </div>
-        <div>
-          <label className="text-sm font-medium text-gray-300">
-            Tipo de Mídia
-          </label>
-          <select
-            value={mediaType}
-            onChange={(e) => setMediaType(e.target.value as PostMediaType)}
-            className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md py-2 px-3 text-white"
-          >
-            <option value="FOTO">Foto</option>
-            <option value="REELS">Reels</option>
-            <option value="CARROSSEL">Carrossel</option>
-            <option value="STORY">Story</option>
-            <option value="VIDEO">Vídeo</option>
-          </select>
-        </div>
-        <div>
-          <label className="text-sm font-medium text-gray-300">
-            Data e Hora do Agendamento
-          </label>
-          <input
-            type="datetime-local"
-            value={scheduledAt}
-            onChange={(e) => setScheduledAt(e.target.value)}
-            className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md py-2 px-3 text-white"
-          />
-        </div>
-        <div className="flex justify-end gap-3 pt-4">
-          <button
-            onClick={onClose}
-            disabled={isSubmitting}
-            className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg disabled:opacity-50"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center w-32 disabled:bg-indigo-800"
-          >
-            {isSubmitting ? (
-              <Loader className="animate-spin" size={20} />
-            ) : (
-              "Agendar"
-            )}
-          </button>
-        </div>
-      </div>
-    </Modal>
+      </Modal>
+
+      {isCropperOpen && fileToCrop && (
+        <ImageCropperModal
+          isOpen={isCropperOpen}
+          onClose={() => setIsCropperOpen(false)}
+          imageSrc={fileToCrop.url}
+          onCropComplete={handleCropComplete}
+        />
+      )}
+    </>
   );
 }
