@@ -22,6 +22,15 @@ function SupabaseAuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session);
     });
 
+    // Registra Service Worker para PWA
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').then((registration) => {
+        console.log('SW registrado:', registration.scope);
+      }).catch((error) => {
+        console.log('SW falhou:', error);
+      });
+    }
+
     // Limpa a inscrição quando o componente é desmontado
     return () => subscription.unsubscribe();
   }, [setSession]);
@@ -36,6 +45,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#6366f1" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <link rel="apple-touch-icon" href="/icon-192.png" />
+      </head>
       <body>
         <SupabaseAuthProvider>{children}</SupabaseAuthProvider>
       </body>

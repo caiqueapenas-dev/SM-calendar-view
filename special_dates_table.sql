@@ -14,3 +14,24 @@ CREATE TABLE IF NOT EXISTS special_dates (
 -- Create index for better performance
 CREATE INDEX IF NOT EXISTS idx_special_dates_client_id ON special_dates(client_id);
 CREATE INDEX IF NOT EXISTS idx_special_dates_date ON special_dates(date);
+
+-- Enable Row Level Security
+ALTER TABLE special_dates ENABLE ROW LEVEL SECURITY;
+
+-- Create policies for authenticated users
+DROP POLICY IF EXISTS "Users can view special dates" ON special_dates;
+DROP POLICY IF EXISTS "Authenticated users can insert special dates" ON special_dates;
+DROP POLICY IF EXISTS "Authenticated users can update special dates" ON special_dates;
+DROP POLICY IF EXISTS "Authenticated users can delete special dates" ON special_dates;
+
+CREATE POLICY "Users can view special dates"
+ON special_dates FOR SELECT TO authenticated USING (true);
+
+CREATE POLICY "Authenticated users can insert special dates"
+ON special_dates FOR INSERT TO authenticated WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can update special dates"
+ON special_dates FOR UPDATE TO authenticated USING (true);
+
+CREATE POLICY "Authenticated users can delete special dates"
+ON special_dates FOR DELETE TO authenticated USING (true);
