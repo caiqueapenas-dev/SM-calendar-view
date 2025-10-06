@@ -1,37 +1,49 @@
-import { Post } from "@/lib/types";
+import { Post, SimulatedPost } from "@/lib/types";
 import dayjs from "dayjs";
 import "dayjs/locale/pt-br";
-import {
-  Instagram,
-  Facebook,
-  FileImage,
-  Video,
-  Layers,
-  RectangleEllipsis,
-} from "lucide-react";
+import { Instagram, Facebook } from "lucide-react";
 import MediaTypeTag from "./MediaTypeTag";
 
 dayjs.locale("pt-br");
 
 interface PostCardProps {
-  post: Post;
+  post: SimulatedPost;
   onClick: () => void;
   isAdminView?: boolean;
 }
+
+const statusStyles = {
+  pending: {
+    label: "Aguardando Aprovação",
+    classes: "bg-yellow-500 text-yellow-900",
+  },
+  approved: {
+    label: "Agendado",
+    classes: "bg-green-500 text-green-900",
+  },
+  rejected: {
+    label: "Reprovado",
+    classes: "bg-red-500 text-red-900",
+  },
+};
 
 export default function PostCard({
   post,
   onClick,
   isAdminView = false,
 }: PostCardProps) {
-  const formattedDate = dayjs(post.timestamp).format("DD/MM/YYYY [às] HH:mm");
-  const isScheduled = post.status === "scheduled";
+  const formattedDate = dayjs(post.scheduledAt).format("DD/MM/YYYY [às] HH:mm");
+  const statusInfo = statusStyles[post.approvalStatus];
 
-  const getPlatformIcon = () => {
-    if (post.platform === "instagram") {
-      return <Instagram size={16} className="text-gray-400" />;
-    }
-    return <Facebook size={16} className="text-gray-400" />;
+  const getPlatformIcons = () => {
+    return (post.platforms || []).map((platform) => {
+      if (platform === "instagram") {
+        return (
+          <Instagram key="instagram" size={16} className="text-gray-400" />
+        );
+      }
+      return <Facebook key="facebook" size={16} className="text-gray-400" />;
+    });
   };
 
   const placeholderUrl =
@@ -44,7 +56,7 @@ export default function PostCard({
     >
       <div className="relative w-full h-48">
         <img
-          src={post.media_url || post.thumbnail_url || placeholderUrl}
+          src={post.mediaUrl || placeholderUrl}
           alt="Post media"
           className="w-full h-full object-cover"
           onError={(e) => {
@@ -53,9 +65,11 @@ export default function PostCard({
             target.src = placeholderUrl;
           }}
         />
-        {post.isApproved && (
-          <div className="absolute top-2 right-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-            Aprovado
+        {statusInfo && (
+          <div
+            className={`absolute top-2 right-2 text-xs font-bold px-2 py-1 rounded-full ${statusInfo.classes}`}
+          >
+            {statusInfo.label}
           </div>
         )}
       </div>
@@ -63,7 +77,7 @@ export default function PostCard({
         <p className="text-gray-400 text-xs mb-2 flex items-center">
           <span
             className={`w-2 h-2 rounded-full mr-2 ${
-              isScheduled ? "bg-yellow-400" : "bg-green-400"
+              statusStyles[post.approvalStatus]?.classes.split(" ")[0]
             }`}
           ></span>
           {formattedDate}
@@ -74,10 +88,8 @@ export default function PostCard({
           </p>
         </div>
         <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-700/50">
-          <div className="flex items-center gap-2">
-            {getPlatformIcon()}
-            <MediaTypeTag mediaType={post.media_type} />
-          </div>
+          <div className="flex items-center gap-2">{getPlatformIcons()}</div>
+          <MediaTypeTag mediaType={post.media_type} />
         </div>
       </div>
     </div>

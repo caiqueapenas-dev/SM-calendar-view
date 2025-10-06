@@ -2,8 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useAppStore } from "@/store/appStore";
-import { fetchAllClientData, getClientProfilePicture } from "@/lib/api";
-import { Post } from "@/lib/types";
+import { SimulatedPost } from "@/lib/types";
 import CalendarView from "@/components/calendar/CalendarView";
 import PostModal from "@/components/common/PostModal";
 import DayPostsModal from "./DayPostsModal";
@@ -12,105 +11,28 @@ import { CirclePlus as PlusCircle } from "lucide-react";
 import CreatePostModal from "./CreatePostModal";
 
 export default function AdminDashboardPage() {
-  const {
-    clients,
-    simulatedPosts,
-    updateClient,
-    updateSimulatedPostsStatus,
-    postsByClientId,
-    addPostsForClient,
-    fetchedClients,
-    markClientAsFetched,
-  } = useAppStore();
+  const { clients, simulatedPosts, updateSimulatedPostsStatus } = useAppStore();
 
   const [loading, setLoading] = useState(true);
-  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [selectedPost, setSelectedPost] = useState<SimulatedPost | null>(null);
   const [isPostModalOpen, setPostModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
   const [isDayModalOpen, setDayModalOpen] = useState(false);
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
 
   useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      updateSimulatedPostsStatus();
+    updateSimulatedPostsStatus();
+    setLoading(false);
+  }, [updateSimulatedPostsStatus]);
 
-      const visibleClients = clients.filter((c) => c.isVisible);
-      const clientsToFetch = visibleClients.filter(
-        (c) => !fetchedClients.includes(c.id)
-      );
-
-      if (clientsToFetch.length > 0) {
-        const promises = clientsToFetch.map(async (client) => {
-          try {
-            const posts = await fetchAllClientData(client);
-            addPostsForClient(client.id, posts);
-            markClientAsFetched(client.id);
-
-            if (!client.profile_picture_url) {
-              const picUrl = await getClientProfilePicture(
-                client.id,
-                client.access_token
-              );
-              if (picUrl) {
-                updateClient(client.id, { profile_picture_url: picUrl });
-              }
-            }
-          } catch (error) {
-            console.error(
-              `Falha ao buscar dados para o cliente ${client.name}:`,
-              error
-            );
-            // Marcar como 'fetched' mesmo em caso de erro para não tentar de novo
-            markClientAsFetched(client.id);
-          }
-        });
-        await Promise.all(promises);
-      }
-      setLoading(false);
-    }
-    fetchData();
-  }, [
-    clients,
-    updateSimulatedPostsStatus,
-    addPostsForClient,
-    fetchedClients,
-    markClientAsFetched,
-    updateClient,
-  ]);
-
-  const allPosts = useMemo(() => {
-    return Object.values(postsByClientId).flat();
-  }, [postsByClientId]);
-
-  const combinedPosts = useMemo(() => {
-    const transformedSimulatedPosts: Post[] = simulatedPosts.map((p) => ({
-      id: p.id,
-      platform: "instagram",
-      caption: p.caption,
-      timestamp: p.scheduledAt,
-      media_url: p.mediaUrl,
-      thumbnail_url: p.mediaUrl,
-      status: p.status,
-      media_type: p.media_type,
-      clientId: p.clientId,
-      isApproved: p.isApproved,
-      editHistory: p.editHistory,
-    }));
-    return [...allPosts, ...transformedSimulatedPosts].sort(
-      (a, b) =>
-        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-    );
-  }, [allPosts, simulatedPosts]);
-
-  const handlePostClick = (post: Post) => {
+  const handlePostClick = (post: SimulatedPost) => {
     setSelectedPost(post);
     setPostModalOpen(true);
   };
 
   const handleDayClick = (date: Dayjs) => {
-    const postsOnDay = combinedPosts.filter((p) =>
-      dayjs(p.timestamp).isSame(date, "day")
+    const postsOnDay = simulatedPosts.filter((p) =>
+      dayjs(p.scheduledAt).isSame(date, "day")
     );
     if (postsOnDay.length > 0) {
       setSelectedDate(date);
@@ -138,7 +60,7 @@ export default function AdminDashboardPage() {
       </div>
 
       <CalendarView
-        posts={combinedPosts}
+        posts={simulatedPosts}
         onPostClick={handlePostClick}
         onDayClick={handleDayClick}
         isAdminView={true}
@@ -154,8 +76,9 @@ export default function AdminDashboardPage() {
         isOpen={isDayModalOpen}
         onClose={() => setDayModalOpen(false)}
         date={selectedDate}
-        posts={combinedPosts.filter(
-          (p) => selectedDate && dayjs(p.timestamp).isSame(selectedDate, "day")
+        posts={simulatedPosts.filter(
+          (p) =>
+            selectedDate && dayjs(p.scheduledAt).isSame(selectedDate, "day")
         )}
         clients={clients}
         onPostSelect={(post) => {

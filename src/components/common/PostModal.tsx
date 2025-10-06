@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Post, EditHistoryItem } from "@/lib/types";
+import { SimulatedPost } from "@/lib/types";
 import { useAppStore } from "@/store/appStore";
 import dayjs from "dayjs";
 import "dayjs/locale/pt-br";
@@ -9,258 +9,343 @@ import {
   Instagram,
   Facebook,
   Pen,
-  Check,
   Save,
   X,
-  ChevronLeft,
-  ChevronRight,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
+import * as unidiff from "unidiff"; // ✅ Import correto
 
 dayjs.locale("pt-br");
 
 interface PostModalProps {
   isOpen: boolean;
   onClose: () => void;
-  post: Post | null;
+  post: SimulatedPost | null;
 }
 
-const DiffViewer = ({
-  oldText,
-  newText,
-}: {
+interface DiffViewerProps {
   oldText: string;
   newText: string;
-}) => {
-  const oldLines = oldText.split("\n");
-  const newLines = newText.split("\n");
-  const maxLines = Math.max(oldLines.length, newLines.length);
-  const diffLines = [];
+}
 
-  for (let i = 0; i < maxLines; i++) {
-    const oldLine = oldLines[i];
-    const newLine = newLines[i];
+const DiffViewer = ({ oldText, newText }: DiffViewerProps) => {
+  const diff = unidiff.diffLines(oldText, newText);
+  const formatted = unidiff.formatLines(diff, { context: 3 });
 
-    if (oldLine === newLine) {
-      diffLines.push(
-        <div key={`same-${i}`} className="text-gray-400">
-          <span className="w-6 inline-block"> </span>
-          {newLine}
-        </div>
-      );
-    } else if (oldLine !== undefined && newLine === undefined) {
-      diffLines.push(
-        <div key={`del-${i}`} className="bg-red-900/30 text-red-400">
-          <span className="w-6 inline-block text-center">-</span>
-          {oldLine}
-        </div>
-      );
-    } else if (oldLine === undefined && newLine !== undefined) {
-      diffLines.push(
-        <div key={`add-${i}`} className="bg-green-900/30 text-green-400">
-          <span className="w-6 inline-block text-center">+</span>
-          {newLine}
-        </div>
-      );
-    } else {
-      diffLines.push(
-        <div key={`mod-del-${i}`} className="bg-red-900/30 text-red-400">
-          <span className="w-6 inline-block text-center">-</span>
-          {oldLine}
-        </div>
-      );
-      diffLines.push(
-        <div key={`mod-add-${i}`} className="bg-green-900/30 text-green-400">
-          <span className="w-6 inline-block text-center">+</span>
-          {newLine}
-        </div>
-      );
-    }
-  }
+  // Opcional: colorir linhas estilo GitHub
+  const colorizeDiff = (line: string) => {
+    if (line.startsWith("+")) return "text-green-400";
+    if (line.startsWith("-")) return "text-red-400";
+    return "text-gray-300";
+  };
 
   return (
-    <pre className="whitespace-pre-wrap font-mono text-sm">{diffLines}</pre>
+    <pre className="whitespace-pre-wrap font-mono text-sm bg-gray-900 p-2 rounded overflow-x-auto">
+      {formatted.split("\n").map((line, i) => (
+        <div key={i} className={colorizeDiff(line)}>
+          {line}
+        </div>
+      ))}
+    </pre>
   );
 };
 
 export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
-  const { userType, updateSimulatedPostCaption, approveSimulatedPost } =
-    useAppStore();
+  const {
+    userType,
+    updateSimulatedPostCaption,
+    updatePostApprovalStatus,
+    updateSimulatedPost,
+  } = useAppStore();
   const [isEditing, setIsEditing] = useState(false);
+  const [activeTab, setActiveTab] = useState("review");
+
+  // Admin editable fields
   const [editedCaption, setEditedCaption] = useState(post?.caption || "");
-  const [currentSlide, setCurrentSlide] = useState(0);
+  const [editedMediaUrl, setEditedMediaUrl] = useState(post?.mediaUrl || "");
+  const [editedMediaType, setEditedMediaType] = useState<SimulatedPost["media_type"]>(
+    (post?.media_type as SimulatedPost["media_type"]) || "FOTO"
+  );
+  const [editedPlatforms, setEditedPlatforms] = useState<
+    ("instagram" | "facebook")[]
+  >(post?.platforms || []);
+  const [editedScheduledAt, setEditedScheduledAt] = useState(
+    post ? post.scheduledAt : ""
+  );
 
   useEffect(() => {
     if (post) {
       setEditedCaption(post.caption || "");
+      setEditedMediaUrl(post.mediaUrl || "");
+      setEditedMediaType((post.media_type as SimulatedPost["media_type"]) || "FOTO");
+      setEditedPlatforms(post.platforms || []);
+      setEditedScheduledAt(post.scheduledAt || "");
       setIsEditing(false);
-      setCurrentSlide(0);
+      setActiveTab("review");
     }
   }, [post]);
 
   if (!post) return null;
 
-  const slides =
-    post.media_type === "CARROSSEL"
-      ? post.children || [{ id: post.id, media_url: post.media_url }]
-      : [{ id: post.id, media_url: post.media_url }];
-  const isCarousel = slides.length > 1;
-
-  const nextSlide = () => setCurrentSlide((prev) => (prev + 1) % slides.length);
-  const prevSlide = () =>
-    setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
-
-  const isClient = userType === "client";
-  const isScheduled = post.status === "scheduled";
-
   const handleSave = () => {
-    if (post) {
+    if (!post) return;
+    if (userType === "client") {
       updateSimulatedPostCaption(post.id, editedCaption);
-      setIsEditing(false);
+    } else if (userType === "admin") {
+      updateSimulatedPost(post.id, {
+        caption: editedCaption,
+        mediaUrl: editedMediaUrl,
+        media_type: editedMediaType,
+        platforms: editedPlatforms,
+        scheduledAt: editedScheduledAt,
+      });
     }
+    setIsEditing(false);
   };
 
-  const handleApprove = () => {
+  const handleApproval = (status: "approved" | "rejected") => {
     if (post) {
-      approveSimulatedPost(post.id);
+      updatePostApprovalStatus(post.id, status);
     }
   };
 
-  const formattedDate = dayjs(post.timestamp).format(
+  const formattedDate = dayjs(post.scheduledAt).format(
     "DD [de] MMMM [de] YYYY [às] HH:mm"
   );
-  const dayOfWeek = dayjs(post.timestamp).format("dddd");
+  const dayOfWeek = dayjs(post.scheduledAt).format("dddd");
+  const lineNumbers = editedCaption.split("\n").length;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
       <div className="flex flex-col max-h-[90vh]">
+        {/* Imagem do post */}
         <div className="relative flex-shrink-0 flex items-center justify-center bg-black rounded-t-lg overflow-hidden h-[40vh]">
-          {isCarousel && (
-            <button
-              onClick={prevSlide}
-              className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 text-white p-1 rounded-full z-10 hover:bg-black/80"
-            >
-              <ChevronLeft size={24} />
-            </button>
-          )}
-
           <img
             src={
-              slides[currentSlide]?.media_url ||
+              post.mediaUrl ||
               "https://placehold.co/800x600/1f2937/9ca3af?text=Sem+Imagem"
             }
             alt="Post media"
             className="w-auto h-auto max-w-full max-h-full object-contain"
           />
-
-          {isCarousel && (
-            <button
-              onClick={nextSlide}
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 text-white p-1 rounded-full z-10 hover:bg-black/80"
-            >
-              <ChevronRight size={24} />
-            </button>
-          )}
         </div>
 
+        {/* Tabs */}
+        <div className="border-b border-gray-700">
+          <nav className="flex -mb-px">
+            <button
+              onClick={() => setActiveTab("review")}
+              className={`py-3 px-4 font-medium text-sm border-b-2 ${
+                activeTab === "review"
+                  ? "border-indigo-500 text-indigo-400"
+                  : "border-transparent text-gray-400 hover:text-gray-200"
+              }`}
+            >
+              Revisão
+            </button>
+            <button
+              onClick={() => setActiveTab("log")}
+              className={`py-3 px-4 font-medium text-sm border-b-2 ${
+                activeTab === "log"
+                  ? "border-indigo-500 text-indigo-400"
+                  : "border-transparent text-gray-400 hover:text-gray-200"
+              }`}
+            >
+              Log de Alterações
+            </button>
+          </nav>
+        </div>
+
+        {/* Conteúdo */}
         <div className="p-6 flex-grow overflow-y-auto">
-          {isScheduled && (
-            <div className="bg-red-900/50 text-red-300 p-2 rounded-md text-center mb-4">
-              Agendado para: {dayOfWeek}, {formattedDate}
-            </div>
-          )}
+          {activeTab === "review" && (
+            <>
+              <div className="bg-blue-900/50 text-blue-300 p-2 rounded-md text-center mb-4">
+                Agendado para: {dayOfWeek}, {formattedDate}
+              </div>
 
-          <div className="flex items-center justify-between gap-2 mb-3">
-            <div className="flex items-center gap-2">
-              {post.platform === "instagram" ? (
-                <Instagram size={18} />
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="flex items-center gap-2">
+                  {post.platforms.includes("instagram") && (
+                    <Instagram size={18} />
+                  )}
+                  {post.platforms.includes("facebook") && (
+                    <Facebook size={18} />
+                  )}
+                  <MediaTypeTag mediaType={post.media_type} />
+                </div>
+
+                {userType === "client" && !isEditing && (
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="p-2 rounded-full bg-gradient-to-r from-indigo-500 via-pink-500 to-yellow-500 text-white hover:opacity-90 transition-opacity ring-2 ring-white/20"
+                      title="Editar Legenda"
+                    >
+                      <Pen size={18} />
+                    </button>
+                    <button
+                      onClick={() => handleApproval("approved")}
+                      className="p-2 rounded-full bg-green-500 text-white hover:bg-green-600 disabled:bg-gray-600"
+                      title="Aprovar"
+                      disabled={post.approvalStatus === "approved"}
+                    >
+                      <ThumbsUp size={18} />
+                    </button>
+                    <button
+                      onClick={() => handleApproval("rejected")}
+                      className="p-2 rounded-full bg-red-500 text-white hover:bg-red-600 disabled:bg-gray-600"
+                      title="Reprovar"
+                      disabled={post.approvalStatus === "rejected"}
+                    >
+                      <ThumbsDown size={18} />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Editor / Formulário */}
+              {isEditing ? (
+                <div className="space-y-4">
+                  {userType === "admin" && (
+                    <>
+                      <div>
+                        <label className="text-sm font-medium text-gray-300">URL da Mídia</label>
+                        <input
+                          type="text"
+                          value={editedMediaUrl}
+                          onChange={(e) => setEditedMediaUrl(e.target.value)}
+                          className="mt-1 block w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-300">Tipo de Mídia</label>
+                        <select
+                          value={editedMediaType}
+                          onChange={(e) => setEditedMediaType(e.target.value as SimulatedPost["media_type"])}
+                          className="mt-1 block w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white"
+                        >
+                          <option value="FOTO">Foto</option>
+                          <option value="REELS">Reels</option>
+                          <option value="CARROSSEL">Carrossel</option>
+                          <option value="STORY">Story</option>
+                          <option value="VIDEO">Vídeo</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-300">Plataformas</label>
+                        <div className="flex gap-4 mt-2">
+                          <label className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={editedPlatforms.includes("instagram")}
+                              onChange={() =>
+                                setEditedPlatforms((prev) =>
+                                  prev.includes("instagram")
+                                    ? prev.filter((p) => p !== "instagram")
+                                    : [...prev, "instagram"]
+                                )
+                              }
+                              className="rounded"
+                            />
+                            Instagram
+                          </label>
+                          <label className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={editedPlatforms.includes("facebook")}
+                              onChange={() =>
+                                setEditedPlatforms((prev) =>
+                                  prev.includes("facebook")
+                                    ? prev.filter((p) => p !== "facebook")
+                                    : [...prev, "facebook"]
+                                )
+                              }
+                              className="rounded"
+                            />
+                            Facebook
+                          </label>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-300">Data e Hora</label>
+                        <input
+                          type="datetime-local"
+                          value={dayjs(editedScheduledAt).format("YYYY-MM-DDTHH:mm")}
+                          onChange={(e) => setEditedScheduledAt(new Date(e.target.value).toISOString())}
+                          className="mt-1 block w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white"
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {/* Caption com números de linha */}
+                  <div>
+                    <label className="text-sm font-medium text-gray-300">Legenda</label>
+                    <div className="flex font-mono text-sm mt-1">
+                      <div className="text-right pr-2 text-gray-500 select-none">
+                        {Array.from({ length: editedCaption.split("\n").length || 1 }, (_, i) => (
+                          <div key={i}>{i + 1}</div>
+                        ))}
+                      </div>
+                      <textarea
+                        value={editedCaption}
+                        onChange={(e) => setEditedCaption(e.target.value)}
+                        rows={6}
+                        className="w-full p-2 bg-gray-900 rounded-md text-white border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 resize-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => setIsEditing(false)}
+                      className="flex items-center gap-1 bg-gray-600 hover:bg-gray-500 text-white py-1 px-3 rounded-md"
+                    >
+                      <X size={16} /> Cancelar
+                    </button>
+                    <button
+                      onClick={handleSave}
+                      className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-500 text-white py-1 px-3 rounded-md"
+                    >
+                      <Save size={16} /> Salvar
+                    </button>
+                  </div>
+                </div>
               ) : (
-                <Facebook size={18} />
+                <p className="text-white whitespace-pre-wrap">
+                  {post.caption || "Sem legenda."}
+                </p>
               )}
-              <MediaTypeTag mediaType={post.media_type} />
-            </div>
-            {isCarousel && (
-              <span className="text-xs text-gray-400">
-                {currentSlide + 1} / {slides.length}
-              </span>
-            )}
-            {isClient && isScheduled && !isEditing && (
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="text-gray-400 hover:text-white"
-                  title="Editar Legenda"
-                >
-                  <Pen size={18} />
-                </button>
-                <button
-                  onClick={handleApprove}
-                  className="text-green-400 hover:text-green-300 disabled:text-gray-600 disabled:cursor-not-allowed"
-                  title="Aprovar Post"
-                  disabled={post.isApproved}
-                >
-                  <Check size={22} />
-                </button>
-              </div>
-            )}
-          </div>
-
-          {!isScheduled && (
-            <p className="text-gray-400 text-sm mb-3">
-              Publicado em: {formattedDate}
-            </p>
+            </>
           )}
 
-          {isEditing ? (
+          {activeTab === "log" && (
             <div>
-              <textarea
-                value={editedCaption}
-                onChange={(e) => setEditedCaption(e.target.value)}
-                className="w-full h-32 p-2 bg-gray-900 rounded-md text-white border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500"
-              />
-              <div className="flex justify-end gap-2 mt-2">
-                <button
-                  onClick={() => setIsEditing(false)}
-                  className="flex items-center gap-1 bg-gray-600 hover:bg-gray-500 text-white py-1 px-3 rounded-md"
-                >
-                  <X size={16} /> Cancelar
-                </button>
-                <button
-                  onClick={handleSave}
-                  className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-500 text-white py-1 px-3 rounded-md"
-                >
-                  <Save size={16} /> Salvar
-                </button>
-              </div>
-            </div>
-          ) : (
-            <p className="text-white whitespace-pre-wrap">
-              {post.caption || "Sem legenda."}
-            </p>
-          )}
-
-          {post.editHistory && post.editHistory.length > 0 && (
-            <div className="mt-6">
               <h3 className="font-semibold text-lg mb-2 border-b border-gray-700 pb-1">
                 Histórico de Alterações
               </h3>
-              <div className="space-y-4 max-h-48 overflow-y-auto pr-2">
-                {post.editHistory
-                  .slice()
-                  .reverse()
-                  .map((edit, index) => (
-                    <div key={index} className="text-sm">
-                      <p className="text-gray-500 mb-1">
-                        Alterado em:{" "}
-                        {dayjs(edit.timestamp).format("DD/MM/YYYY HH:mm")}
-                      </p>
-                      <div className="bg-gray-900/70 p-2 rounded-md">
+              <div className="space-y-4 max-h-64 overflow-y-auto pr-2">
+                {post.editHistory && post.editHistory.length > 0 ? (
+                  post.editHistory
+                    .slice()
+                    .reverse()
+                    .map((edit, index) => (
+                      <div key={index} className="text-sm">
+                        <p className="text-gray-500 mb-1">
+                          Alterado em:{" "}
+                          {dayjs(edit.timestamp).format("DD/MM/YYYY HH:mm")}
+                        </p>
                         <DiffViewer
                           oldText={edit.oldCaption}
                           newText={edit.newCaption}
                         />
                       </div>
-                    </div>
-                  ))}
+                    ))
+                ) : (
+                  <p className="text-gray-400">Nenhuma alteração registrada.</p>
+                )}
               </div>
             </div>
           )}

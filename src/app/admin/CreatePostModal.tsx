@@ -1,5 +1,3 @@
-// Este componente precisaria de mais lógica para upload de arquivos,
-// mas para este protótipo, usaremos um campo de URL para a mídia.
 "use client";
 
 import Modal from "../../components/common/Modal";
@@ -23,29 +21,36 @@ export default function CreatePostModal({
   const [scheduledAt, setScheduledAt] = useState("");
   const [mediaType, setMediaType] =
     useState<SimulatedPost["media_type"]>("FOTO");
+  const [platforms, setPlatforms] = useState<("instagram" | "facebook")[]>([]);
+
+  const handlePlatformChange = (platform: "instagram" | "facebook") => {
+    setPlatforms((prev) =>
+      prev.includes(platform)
+        ? prev.filter((p) => p !== platform)
+        : [...prev, platform]
+    );
+  };
 
   const handleSubmit = () => {
-    if (!clientId || !mediaUrl || !scheduledAt) {
+    if (!clientId || !mediaUrl || !scheduledAt || platforms.length === 0) {
       alert("Por favor, preencha todos os campos obrigatórios.");
       return;
     }
 
-    const newPost: SimulatedPost = {
-      id: `sim_${Date.now()}`,
+    addSimulatedPost({
       clientId,
       caption,
       mediaUrl,
       scheduledAt: new Date(scheduledAt).toISOString(),
-      status: "scheduled",
       media_type: mediaType,
-    };
-
-    addSimulatedPost(newPost);
+      platforms,
+    });
     onClose();
     // Reset form
     setCaption("");
     setMediaUrl("");
     setScheduledAt("");
+    setPlatforms([]);
   };
 
   return (
@@ -91,6 +96,31 @@ export default function CreatePostModal({
             rows={4}
             className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md py-2 px-3 text-white"
           ></textarea>
+        </div>
+        <div>
+          <label className="text-sm font-medium text-gray-300">
+            Plataformas
+          </label>
+          <div className="flex gap-4 mt-2">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={platforms.includes("instagram")}
+                onChange={() => handlePlatformChange("instagram")}
+                className="rounded"
+              />
+              Instagram
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={platforms.includes("facebook")}
+                onChange={() => handlePlatformChange("facebook")}
+                className="rounded"
+              />
+              Facebook
+            </label>
+          </div>
         </div>
         <div>
           <label className="text-sm font-medium text-gray-300">
