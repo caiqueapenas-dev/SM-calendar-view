@@ -27,10 +27,10 @@ interface SpecialDate {
   id: string;
   client_id: string;
   title: string;
-  description?: string;
+  description?: string | null;
   date: string;
   is_recurring: boolean;
-  recurrence_type?: "monthly" | "yearly";
+  recurrence_type?: "monthly" | "yearly" | null;
   created_at: string;
   updated_at: string;
 }
