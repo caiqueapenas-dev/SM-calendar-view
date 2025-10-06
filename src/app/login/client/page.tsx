@@ -62,13 +62,10 @@ export default function ClientLoginPage() {
       });
 
       console.log('🟢 Cliente verificado. Redirecionando...');
-      
-      // Aguardar um momento para o state atualizar
-      await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Redirecionar para área do cliente
-      router.push(`/client/${clientData.client_id}`);
-      console.log('🟢 router.push executado!');
+      // Usar window.location para garantir que cookie seja enviado
+      window.location.href = `/client/${clientData.client_id}`;
+      console.log('🟢 Redirecionamento executado!');
     } catch (err: any) {
       setError(err.message || "Erro ao fazer login");
     } finally {

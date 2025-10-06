@@ -63,7 +63,7 @@ export default function AdminLoginPage() {
           }
         });
 
-        router.push("/admin");
+        window.location.href = "/admin";
         return;
       }
 
@@ -74,12 +74,9 @@ export default function AdminLoginPage() {
 
       console.log('🔵 Role confirmado: admin. Redirecionando...');
       
-      // Aguardar um momento para o state atualizar
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Redirecionar para admin
-      router.push("/admin");
-      console.log('🔵 router.push(/admin) executado!');
+      // Usar window.location para garantir que cookie seja enviado
+      window.location.href = "/admin";
+      console.log('🔵 Redirecionamento executado!');
     } catch (err: any) {
       setError(err.message || "Erro ao fazer login");
     } finally {
