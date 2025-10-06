@@ -13,13 +13,17 @@ export default function AdminLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { logout, fetchPosts, listenToPostChanges, isLoading } = useAppStore();
+  const { logout, fetchPosts, fetchClients, listenToPostChanges, isLoading } =
+    useAppStore();
 
   useEffect(() => {
+    // Busca clientes e posts ao carregar o layout
+    fetchClients();
     fetchPosts();
+
     const unsubscribe = listenToPostChanges();
     return () => unsubscribe();
-  }, [fetchPosts, listenToPostChanges]);
+  }, [fetchClients, fetchPosts, listenToPostChanges]);
 
   const handleLogout = async () => {
     await logout();

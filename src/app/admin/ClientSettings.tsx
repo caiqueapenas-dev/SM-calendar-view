@@ -1,20 +1,23 @@
 "use client";
 import { useAppStore } from "@/store/appStore";
 import { useState } from "react";
-import { Eye, EyeOff, Save, Edit, X } from "lucide-react";
+import { Save, Edit, X } from "lucide-react";
+import { Database } from "@/lib/database.types";
+
+type ClientRow = Database["public"]["Tables"]["clients"]["Row"];
 
 export default function ClientSettings() {
   const { clients, updateClient } = useAppStore();
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
 
-  const handleStartEditing = (client: (typeof clients)[0]) => {
+  const handleStartEditing = (client: ClientRow) => {
     setEditingClientId(client.id);
-    setNewName(client.customName || client.name);
+    setNewName(client.custom_name || client.name);
   };
 
-  const handleSave = (clientId: string) => {
-    updateClient(clientId, { customName: newName });
+  const handleSave = async (clientId: string) => {
+    await updateClient(clientId, { custom_name: newName });
     setEditingClientId(null);
   };
 
@@ -49,11 +52,11 @@ export default function ClientSettings() {
                   />
                 ) : (
                   <p className="font-semibold text-white text-lg">
-                    {client.customName || client.name}
+                    {client.custom_name || client.name}
                   </p>
                 )}
                 <p className="text-sm text-gray-400">
-                  {client.name} (ID: {client.id})
+                  {client.name} (ID: {client.client_id})
                 </p>
               </div>
             </div>
@@ -81,17 +84,6 @@ export default function ClientSettings() {
                   <Edit size={20} />
                 </button>
               )}
-              <button
-                onClick={() =>
-                  updateClient(client.id, { isVisible: !client.isVisible })
-                }
-              >
-                {client.isVisible ? (
-                  <Eye size={20} className="text-green-500" />
-                ) : (
-                  <EyeOff size={20} className="text-red-500" />
-                )}
-              </button>
             </div>
           </li>
         ))}

@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      clients: {
+        Row: {
+          category: string | null
+          client_id: string
+          custom_name: string | null
+          id: string
+          instagram_handle: string | null
+          name: string
+          profile_picture_url: string | null
+        }
+        Insert: {
+          category?: string | null
+          client_id: string
+          custom_name?: string | null
+          id?: string
+          instagram_handle?: string | null
+          name: string
+          profile_picture_url?: string | null
+        }
+        Update: {
+          category?: string | null
+          client_id?: string
+          custom_name?: string | null
+          id?: string
+          instagram_handle?: string | null
+          name?: string
+          profile_picture_url?: string | null
+        }
+        Relationships: []
+      }
       posts: {
         Row: {
           caption: string | null

@@ -1,10 +1,11 @@
-import { Client, PostMediaType } from "@/lib/types";
+import { PostMediaType } from "@/lib/types";
 import { Dayjs } from "dayjs";
 import MediaTypeTag from "../common/MediaTypeTag";
 import dayjs from "dayjs";
 import { Database } from "@/lib/database.types";
 
 type PostRow = Database["public"]["Tables"]["posts"]["Row"];
+type ClientRow = Database["public"]["Tables"]["clients"]["Row"];
 
 interface CalendarDayProps {
   date: Dayjs;
@@ -13,7 +14,7 @@ interface CalendarDayProps {
   onDayClick: () => void;
   onPostClick: (post: PostRow) => void;
   isAdminView: boolean;
-  clients: Client[];
+  clients: ClientRow[];
 }
 
 export default function CalendarDay({
@@ -63,15 +64,15 @@ export default function CalendarDay({
       {isAdminView ? (
         <div className="flex flex-wrap gap-1">
           {Object.entries(postsByClient).map(([clientId, clientPosts]) => {
-            const client = clients.find((c) => c.id === clientId);
+            const client = clients.find((c) => c.client_id === clientId);
             if (!client) return null;
             return (
-              <div key={clientId} className="relative">
+              <div key={client.id} className="relative">
                 <img
                   src={
                     client.profile_picture_url ||
                     `https://ui-avatars.com/api/?name=${
-                      client.customName || client.name
+                      client.custom_name || client.name
                     }&background=random`
                   }
                   alt={client.name}

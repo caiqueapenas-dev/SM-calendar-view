@@ -15,6 +15,7 @@ import {
   ThumbsDown,
   History,
   FileText,
+  Loader,
 } from "lucide-react";
 import * as unidiff from "unidiff";
 import { Database } from "@/lib/database.types";
@@ -63,7 +64,9 @@ export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
   const { userRole, updatePost, updatePostStatus } = useAppStore();
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState("review");
+  const [isSaving, setIsSaving] = useState(false);
 
+  // State for editable fields
   const [editedCaption, setEditedCaption] = useState("");
   const [editedMediaUrl, setEditedMediaUrl] = useState("");
   const [editedMediaType, setEditedMediaType] = useState<PostMediaType>("FOTO");
@@ -88,25 +91,35 @@ export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
 
   if (!post) return null;
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!post || !userRole) return;
 
-    let updates: Partial<PostRow> = {
-      caption: editedCaption,
-    };
-
-    if (userRole === "admin") {
-      updates = {
-        ...updates,
-        media_url: editedMediaUrl,
-        media_type: editedMediaType,
-        platforms: editedPlatforms,
-        scheduled_at: new Date(editedScheduledAt).toISOString(),
+    setIsSaving(true);
+    try {
+      let updates: Partial<PostRow> = {
+        caption: editedCaption,
       };
-    }
 
-    updatePost(post.id, updates);
-    setIsEditing(false);
+      if (userRole === "admin") {
+        updates = {
+          ...updates,
+          media_url: editedMediaUrl,
+          media_type: editedMediaType,
+          platforms: editedPlatforms,
+          scheduled_at: new Date(editedScheduledAt).toISOString(),
+        };
+      }
+
+      await updatePost(post.id, updates);
+      alert("Post atualizado com sucesso!");
+      setIsEditing(false);
+      onClose(); // Fecha o modal para ver a atualização na tela principal
+    } catch (error) {
+      alert("Falha ao atualizar o post.");
+      console.error(error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -121,8 +134,21 @@ export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
     setIsEditing(false);
   };
 
-  const handleApproval = (status: PostStatus) => {
-    if (post) updatePostStatus(post.id, status);
+  const handleApproval = async (status: PostStatus) => {
+    if (!post) return;
+    setIsSaving(true);
+    try {
+      await updatePostStatus(post.id, status);
+      alert(
+        `Post ${status === "agendado" ? "aprovado" : "reprovado"} com sucesso!`
+      );
+      onClose(); // Fecha o modal
+    } catch (error) {
+      alert("Falha ao atualizar o status do post.");
+      console.error(error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handlePlatformChange = (platform: "instagram" | "facebook") => {
@@ -199,41 +225,47 @@ export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
                 </div>
                 {!isEditing && (
                   <div className="flex items-center gap-3">
-                    {userRole === "client" && (
+                    {isSaving ? (
+                      <Loader className="animate-spin" />
+                    ) : (
                       <>
-                        <button
-                          onClick={() => setIsEditing(true)}
-                          className="p-2 rounded-full bg-gradient-to-r from-indigo-500 via-pink-500 to-yellow-500 text-white hover:opacity-90 transition-opacity"
-                          title="Editar Legenda"
-                        >
-                          <Pen size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleApproval("agendado")}
-                          className="p-2 rounded-full bg-green-500 text-white hover:bg-green-600 disabled:bg-gray-600"
-                          title="Aprovar"
-                          disabled={post.status === "agendado"}
-                        >
-                          <ThumbsUp size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleApproval("negado")}
-                          className="p-2 rounded-full bg-red-500 text-white hover:bg-red-600 disabled:bg-gray-600"
-                          title="Reprovar"
-                          disabled={post.status === "negado"}
-                        >
-                          <ThumbsDown size={18} />
-                        </button>
+                        {userRole === "client" && (
+                          <>
+                            <button
+                              onClick={() => setIsEditing(true)}
+                              className="p-2 rounded-full bg-gradient-to-r from-indigo-500 via-pink-500 to-yellow-500 text-white hover:opacity-90 transition-opacity"
+                              title="Editar Legenda"
+                            >
+                              <Pen size={18} />
+                            </button>
+                            <button
+                              onClick={() => handleApproval("agendado")}
+                              className="p-2 rounded-full bg-green-500 text-white hover:bg-green-600 disabled:bg-gray-600"
+                              title="Aprovar"
+                              disabled={post.status === "agendado"}
+                            >
+                              <ThumbsUp size={18} />
+                            </button>
+                            <button
+                              onClick={() => handleApproval("negado")}
+                              className="p-2 rounded-full bg-red-500 text-white hover:bg-red-600 disabled:bg-gray-600"
+                              title="Reprovar"
+                              disabled={post.status === "negado"}
+                            >
+                              <ThumbsDown size={18} />
+                            </button>
+                          </>
+                        )}
+                        {userRole === "admin" && (
+                          <button
+                            onClick={() => setIsEditing(true)}
+                            className="p-2 rounded-full bg-gray-600 text-white hover:bg-gray-500"
+                            title="Editar Post"
+                          >
+                            <Pen size={18} />
+                          </button>
+                        )}
                       </>
-                    )}
-                    {userRole === "admin" && (
-                      <button
-                        onClick={() => setIsEditing(true)}
-                        className="p-2 rounded-full bg-gray-600 text-white hover:bg-gray-500"
-                        title="Editar Post"
-                      >
-                        <Pen size={18} />
-                      </button>
                     )}
                   </div>
                 )}
@@ -342,15 +374,23 @@ export default function PostModal({ isOpen, onClose, post }: PostModalProps) {
                   <div className="flex justify-end gap-2 mt-4">
                     <button
                       onClick={handleCancelEdit}
+                      disabled={isSaving}
                       className="flex items-center gap-1 bg-gray-600 hover:bg-gray-500 text-white py-1 px-3 rounded-md"
                     >
                       <X size={16} /> Cancelar
                     </button>
                     <button
                       onClick={handleSave}
-                      className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-500 text-white py-1 px-3 rounded-md"
+                      disabled={isSaving}
+                      className="flex items-center justify-center gap-1 bg-indigo-600 hover:bg-indigo-500 text-white py-1 px-3 rounded-md w-28"
                     >
-                      <Save size={16} /> Salvar
+                      {isSaving ? (
+                        <Loader className="animate-spin" />
+                      ) : (
+                        <>
+                          <Save size={16} /> Salvar
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>

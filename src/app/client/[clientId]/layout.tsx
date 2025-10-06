@@ -15,15 +15,24 @@ export default function ClientLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { clients, logout, fetchPosts, listenToPostChanges, isLoading } =
-    useAppStore();
-  const client = clients.find((c) => c.id === params.clientId);
+  const {
+    clients,
+    logout,
+    fetchPosts,
+    fetchClients,
+    listenToPostChanges,
+    isLoading,
+  } = useAppStore();
+  const client = clients.find((c) => c.client_id === params.clientId);
 
   useEffect(() => {
+    // Busca clientes e posts ao carregar o layout
+    fetchClients();
     fetchPosts();
+
     const unsubscribe = listenToPostChanges();
     return () => unsubscribe();
-  }, [fetchPosts, listenToPostChanges]);
+  }, [fetchClients, fetchPosts, listenToPostChanges]);
 
   const handleLogout = async () => {
     await logout();
@@ -48,7 +57,7 @@ export default function ClientLayout({
       <header className="flex flex-col md:flex-row justify-between md:items-center mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-bold">
-            Bem-vindo, {client?.customName || client?.name}
+            Bem-vindo, {client?.custom_name || client?.name}
           </h1>
           <p className="text-gray-400">Gerencie suas publicações.</p>
         </div>

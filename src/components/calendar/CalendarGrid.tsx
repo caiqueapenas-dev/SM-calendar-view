@@ -1,4 +1,3 @@
-import { Client } from "@/lib/types";
 import dayjs, { Dayjs } from "dayjs";
 import CalendarDay from "./CalendarDay";
 import { useAppStore } from "@/store/appStore";

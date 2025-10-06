@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
-import { Client, UserRole, PostStatus } from "@/lib/types";
-import { initialClients } from "./clients";
+import { UserRole, PostStatus } from "@/lib/types";
 import { supabase } from "@/lib/supabaseClient";
 import { Database } from "@/lib/database.types";
 import { Session, User } from "@supabase/supabase-js";
@@ -9,20 +8,25 @@ import { Session, User } from "@supabase/supabase-js";
 type PostRow = Database["public"]["Tables"]["posts"]["Row"];
 type PostInsert = Database["public"]["Tables"]["posts"]["Insert"];
 type PostUpdate = Database["public"]["Tables"]["posts"]["Update"];
+type ClientRow = Database["public"]["Tables"]["clients"]["Row"];
+type ClientUpdate = Database["public"]["Tables"]["clients"]["Update"];
 
 interface AppState {
   session: Session | null;
   user: User | null;
   userRole: UserRole | null;
-  clients: Client[];
+  clients: ClientRow[];
   posts: PostRow[];
   isLoading: boolean;
   setSession: (session: Session | null) => void;
   logout: () => Promise<void>;
+  fetchClients: () => Promise<void>;
+  updateClient: (clientId: string, updates: ClientUpdate) => Promise<void>;
+  listenToClientChanges: () => () => void;
   fetchPosts: () => Promise<void>;
   addPost: (
     postData: Omit<PostInsert, "status" | "created_by" | "edit_history">
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   updatePost: (postId: string, updates: PostUpdate) => Promise<void>;
   updatePostStatus: (postId: string, status: PostStatus) => Promise<void>;
   listenToPostChanges: () => () => void;
@@ -33,7 +37,7 @@ export const useAppStore = create<AppState>()(
     session: null,
     user: null,
     userRole: null,
-    clients: initialClients.map((c) => ({ ...c, isVisible: true })),
+    clients: [],
     posts: [],
     isLoading: true,
 
@@ -53,7 +57,54 @@ export const useAppStore = create<AppState>()(
 
     logout: async () => {
       await supabase.auth.signOut();
-      set({ session: null, user: null, userRole: null, posts: [] });
+      set({
+        session: null,
+        user: null,
+        userRole: null,
+        posts: [],
+        clients: [],
+      });
+    },
+
+    fetchClients: async () => {
+      const { data, error } = await supabase.from("clients").select("*");
+      if (error) {
+        console.error("Error fetching clients:", error);
+      } else {
+        set({ clients: data || [] });
+      }
+    },
+
+    updateClient: async (clientId, updates) => {
+      const { error } = await supabase
+        .from("clients")
+        .update(updates)
+        .eq("id", clientId);
+      if (error) {
+        console.error("Error updating client:", error);
+      }
+    },
+
+    listenToClientChanges: () => {
+      const channel = supabase
+        .channel("realtime-clients")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "clients" },
+          (payload) => {
+            const currentClients = get().clients;
+            if (payload.eventType === "UPDATE") {
+              const newRecord = payload.new as ClientRow;
+              set({
+                clients: currentClients.map((c) =>
+                  c.id === newRecord.id ? newRecord : c
+                ),
+              });
+            }
+          }
+        )
+        .subscribe();
+      return () => supabase.removeChannel(channel);
     },
 
     fetchPosts: async () => {
@@ -62,9 +113,7 @@ export const useAppStore = create<AppState>()(
         .from("posts")
         .select("*")
         .order("scheduled_at", { ascending: false });
-      if (error) {
-        console.error("Error fetching posts:", error);
-      }
+      if (error) console.error("Error fetching posts:", error);
       set({ posts: data || [], isLoading: false });
     },
 
@@ -72,18 +121,28 @@ export const useAppStore = create<AppState>()(
       const user = get().user;
       if (!user) {
         console.error("User not authenticated to create post.");
-        return;
+        return false;
       }
-
       const newPost: PostInsert = {
         ...postData,
         status: "aguardando_aprovacao",
         created_by: user.id,
         edit_history: [],
       };
-
-      const { error } = await supabase.from("posts").insert(newPost);
-      if (error) console.error("Error creating post:", error);
+      const { data, error } = await supabase
+        .from("posts")
+        .insert(newPost)
+        .select()
+        .single();
+      if (error) {
+        console.error("Error creating post:", error);
+        return false;
+      }
+      if (data) {
+        const currentPosts = get().posts;
+        set({ posts: [data, ...currentPosts] });
+      }
+      return true;
     },
 
     updatePost: async (postId, updates) => {
@@ -110,27 +169,50 @@ export const useAppStore = create<AppState>()(
           newHistoryItem,
         ];
         finalUpdates.edit_history = newEditHistory;
-
         if (userRole === "client") {
           finalUpdates.status = "aguardando_aprovacao";
         }
       }
 
-      const { error } = await supabase
+      const { data: updatedPost, error } = await supabase
         .from("posts")
         .update(finalUpdates)
-        .eq("id", postId);
+        .eq("id", postId)
+        .select()
+        .single();
 
-      if (error) console.error("Error updating post:", error);
+      if (error) {
+        console.error("Error updating post:", error);
+        return;
+      }
+
+      if (updatedPost) {
+        const currentPosts = get().posts;
+        set({
+          posts: currentPosts.map((p) => (p.id === postId ? updatedPost : p)),
+        });
+      }
     },
 
     updatePostStatus: async (postId, status) => {
-      const { error } = await supabase
+      const { data: updatedPost, error } = await supabase
         .from("posts")
         .update({ status })
-        .eq("id", postId);
+        .eq("id", postId)
+        .select()
+        .single();
 
-      if (error) console.error("Error updating post status:", error);
+      if (error) {
+        console.error("Error updating post status:", error);
+        return;
+      }
+
+      if (updatedPost) {
+        const currentPosts = get().posts;
+        set({
+          posts: currentPosts.map((p) => (p.id === postId ? updatedPost : p)),
+        });
+      }
     },
 
     listenToPostChanges: () => {
@@ -141,7 +223,6 @@ export const useAppStore = create<AppState>()(
           { event: "*", schema: "public", table: "posts" },
           (payload) => {
             const currentPosts = get().posts;
-
             if (payload.eventType === "INSERT") {
               const newRecord = payload.new as PostRow;
               set({ posts: [newRecord, ...currentPosts] });
@@ -154,17 +235,12 @@ export const useAppStore = create<AppState>()(
               });
             } else if (payload.eventType === "DELETE") {
               const oldRecord = payload.old as Partial<PostRow>;
-              set({
-                posts: currentPosts.filter((p) => p.id !== oldRecord.id),
-              });
+              set({ posts: currentPosts.filter((p) => p.id !== oldRecord.id) });
             }
           }
         )
         .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
+      return () => supabase.removeChannel(channel);
     },
   }))
 );

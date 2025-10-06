@@ -1,17 +1,18 @@
 import dayjs, { Dayjs } from "dayjs";
-import { Client, Post, PostMediaType } from "@/lib/types";
 import Modal from "../../components/common/Modal";
 import MediaTypeTag from "../../components/common/MediaTypeTag";
 import { Database } from "@/lib/database.types";
+import { PostMediaType } from "@/lib/types";
 
 type PostRow = Database["public"]["Tables"]["posts"]["Row"];
+type ClientRow = Database["public"]["Tables"]["clients"]["Row"];
 
 interface DayPostsModalProps {
   isOpen: boolean;
   onClose: () => void;
   date: Dayjs | null;
   posts: PostRow[];
-  clients: Client[];
+  clients: ClientRow[];
   onPostSelect: (post: PostRow) => void;
 }
 
@@ -45,7 +46,7 @@ export default function DayPostsModal({
     >
       <div className="p-6 overflow-y-auto max-h-[70vh]">
         {Object.entries(postsByClient).map(([clientId, clientPosts]) => {
-          const client = clients.find((c) => c.id === clientId);
+          const client = clients.find((c) => c.client_id === clientId);
           return (
             <div key={clientId} className="mb-6 last:mb-0">
               <div className="flex items-center gap-3 mb-3 border-b border-gray-700 pb-2">
@@ -53,14 +54,14 @@ export default function DayPostsModal({
                   src={
                     client?.profile_picture_url ||
                     `https://ui-avatars.com/api/?name=${
-                      client?.customName || client?.name
+                      client?.custom_name || client?.name
                     }&background=random`
                   }
                   alt={client?.name}
                   className="w-8 h-8 rounded-full"
                 />
                 <h3 className="font-semibold text-lg">
-                  {client?.customName || client?.name}
+                  {client?.custom_name || client?.name}
                 </h3>
               </div>
               <ul className="space-y-3">

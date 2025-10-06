@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useAppStore } from "@/store/appStore";
 import { PostMediaType } from "@/lib/types";
 import { Database } from "@/lib/database.types";
+import { Loader } from "lucide-react";
 
 type PostInsert = Database["public"]["Tables"]["posts"]["Insert"];
 
@@ -18,12 +19,26 @@ export default function CreatePostModal({
   onClose,
 }: CreatePostModalProps) {
   const { clients, addPost } = useAppStore();
-  const [clientId, setClientId] = useState(clients[0]?.id || "");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Garante que o estado inicial tenha um valor válido
+  const [clientId, setClientId] = useState(clients[0]?.client_id || "");
   const [caption, setCaption] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
   const [mediaType, setMediaType] = useState<PostMediaType>("FOTO");
   const [platforms, setPlatforms] = useState<("instagram" | "facebook")[]>([]);
+
+  const resetForm = () => {
+    setCaption("");
+    setMediaUrl("");
+    setScheduledAt("");
+    setPlatforms([]);
+    setMediaType("FOTO");
+    if (clients.length > 0) {
+      setClientId(clients[0].client_id);
+    }
+  };
 
   const handlePlatformChange = (platform: "instagram" | "facebook") => {
     setPlatforms((prev) =>
@@ -33,14 +48,18 @@ export default function CreatePostModal({
     );
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!clientId || !mediaUrl || !scheduledAt || platforms.length === 0) {
       alert("Por favor, preencha todos os campos obrigatórios.");
       return;
     }
 
-    const postData: Omit<PostInsert, "status" | "created_by" | "edit_history"> =
-      {
+    setIsSubmitting(true);
+    try {
+      const postData: Omit<
+        PostInsert,
+        "status" | "created_by" | "edit_history"
+      > = {
         client_id: clientId,
         caption,
         media_url: mediaUrl,
@@ -49,13 +68,18 @@ export default function CreatePostModal({
         platforms,
       };
 
-    addPost(postData);
-    onClose();
-    // Reset form
-    setCaption("");
-    setMediaUrl("");
-    setScheduledAt("");
-    setPlatforms([]);
+      const success = await addPost(postData);
+
+      if (success) {
+        alert("Post agendado com sucesso!");
+        resetForm();
+        onClose();
+      } else {
+        alert("Ocorreu um erro ao agendar o post.");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -68,15 +92,14 @@ export default function CreatePostModal({
             onChange={(e) => setClientId(e.target.value)}
             className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md py-2 px-3 text-white"
           >
-            {clients
-              .filter((c) => c.isVisible)
-              .map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.customName || c.name}
-                </option>
-              ))}
+            {clients.map((c) => (
+              <option key={c.id} value={c.client_id}>
+                {c.custom_name || c.name}
+              </option>
+            ))}
           </select>
         </div>
+        {/* ... restante do formulário ... */}
         <div>
           <label className="text-sm font-medium text-gray-300">
             URL da Mídia
@@ -153,15 +176,21 @@ export default function CreatePostModal({
         <div className="flex justify-end gap-3 pt-4">
           <button
             onClick={onClose}
-            className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg"
+            disabled={isSubmitting}
+            className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg disabled:opacity-50"
           >
             Cancelar
           </button>
           <button
             onClick={handleSubmit}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg"
+            disabled={isSubmitting}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center w-32 disabled:bg-indigo-800"
           >
-            Agendar
+            {isSubmitting ? (
+              <Loader className="animate-spin" size={20} />
+            ) : (
+              "Agendar"
+            )}
           </button>
         </div>
       </div>
