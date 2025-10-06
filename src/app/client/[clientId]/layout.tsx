@@ -68,7 +68,7 @@ export default function ClientLayout({
           />
           <div>
             <h1 className="text-2xl md:text-3xl font-bold">
-              Bem-vindo, {client?.name || client?.name}
+              Bem-vindo, {client?.custom_name || client?.name}
             </h1>
             <p className="text-gray-400">Gerencie suas publicações.</p>
           </div>
@@ -81,12 +81,12 @@ export default function ClientLayout({
         </button>
       </header>
 
-      <div className="flex border-b border-gray-700 mb-6">
+      <div className="flex border-b border-gray-700 mb-6 overflow-x-auto">
         {navItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}
-            className={`flex items-center gap-2 py-3 px-4 font-medium text-sm border-b-2 -mb-px ${
+            className={`flex-shrink-0 flex items-center gap-2 py-3 px-4 font-medium text-sm border-b-2 -mb-px ${
               pathname === item.href
                 ? "border-indigo-500 text-indigo-400"
                 : "border-transparent text-gray-400 hover:text-gray-200"

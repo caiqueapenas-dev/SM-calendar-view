@@ -116,7 +116,7 @@ export const useAppStore = create<AppState>()(
     },
 
     generateNotifications: () => {
-      const { posts, clients, notifications } = get();
+      const { posts, clients } = get();
       const newNotifications: Notification[] = [];
       const now = dayjs();
 

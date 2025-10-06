@@ -118,7 +118,8 @@ export default function EditClientModal({
     }
   };
 
-  const handleFileSelected = (file: File) => {
+  const handleFileSelected = (files: File[]) => {
+    const file = files[0];
     if (file) {
       setNewPfpFile(file);
       setPfpUrl(URL.createObjectURL(file));
@@ -144,7 +145,7 @@ export default function EditClientModal({
           <div className="mt-1">
             <ImageUploader
               previewUrl={pfpUrl}
-              onFileSelected={handleFileSelected}
+              onFilesAdded={handleFileSelected}
               onFileRemoved={handleFileRemoved}
               allowMultiple={false}
               mediaCount={pfpUrl ? 1 : 0}

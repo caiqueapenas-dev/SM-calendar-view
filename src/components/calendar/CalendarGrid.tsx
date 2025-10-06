@@ -2,6 +2,10 @@ import dayjs, { Dayjs } from "dayjs";
 import CalendarDay from "./CalendarDay";
 import { useAppStore } from "@/store/appStore";
 import { Database } from "@/lib/database.types";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 
 type PostRow = Database["public"]["Tables"]["posts"]["Row"];
 
@@ -27,8 +31,8 @@ export default function CalendarGrid({
   const generateDates = () => {
     const start = currentDate.startOf(viewMode).startOf("week");
     const end = currentDate.endOf(viewMode).endOf("week");
-    const dates = [];
     let current = start;
+    const dates = [];
     while (current.isBefore(end) || current.isSame(end, "day")) {
       dates.push(current);
       current = current.add(1, "day");
@@ -39,8 +43,10 @@ export default function CalendarGrid({
   const calendarDates = generateDates();
   const daysOfWeek = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
+  const postIds = posts.map((p) => p.id);
+
   return (
-    <>
+    <SortableContext items={postIds} strategy={verticalListSortingStrategy}>
       <div className="grid grid-cols-7 gap-px text-xs font-semibold text-center text-gray-400 mb-2">
         {daysOfWeek.map((day) => (
           <div key={day}>{day}</div>
@@ -65,6 +71,6 @@ export default function CalendarGrid({
           );
         })}
       </div>
-    </>
+    </SortableContext>
   );
 }

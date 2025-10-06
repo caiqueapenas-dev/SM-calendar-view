@@ -72,8 +72,10 @@ export default function CreatePostModal({
   }, [isOpen, defaultDate]);
 
   useEffect(() => {
-    setHasUnsavedChanges(caption !== "" || mediaFiles.length > 0);
-  }, [caption, mediaFiles]);
+    setHasUnsavedChanges(
+      caption !== "" || mediaFiles.length > 0 || platforms.length > 0
+    );
+  }, [caption, mediaFiles, platforms]);
 
   const resetForm = () => {
     setCaption("");
@@ -191,6 +193,7 @@ export default function CreatePostModal({
       const success = await addPost(postData);
 
       if (success) {
+        setHasUnsavedChanges(false);
         alert("Post agendado com sucesso!");
         onClose();
       } else {
