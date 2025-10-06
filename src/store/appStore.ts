@@ -4,6 +4,7 @@ import { UserRole, PostStatus } from "@/lib/types";
 import { supabase } from "@/lib/supabaseClient";
 import { Database } from "@/lib/database.types";
 import { Session, User } from "@supabase/supabase-js";
+import dayjs from "dayjs";
 
 type PostRow = Database["public"]["Tables"]["posts"]["Row"];
 type PostInsert = Database["public"]["Tables"]["posts"]["Insert"];
@@ -11,25 +12,38 @@ type PostUpdate = Database["public"]["Tables"]["posts"]["Update"];
 type ClientRow = Database["public"]["Tables"]["clients"]["Row"];
 type ClientUpdate = Database["public"]["Tables"]["clients"]["Update"];
 
+export interface Notification {
+  id: string;
+  type: "approval_reminder" | "client_edit";
+  clientId: string;
+  postId: string;
+  message: string;
+  urgency: "low" | "medium" | "high";
+  createdAt: string;
+  read: boolean;
+}
+
 interface AppState {
   session: Session | null;
   user: User | null;
   userRole: UserRole | null;
   clients: ClientRow[];
   posts: PostRow[];
+  notifications: Notification[];
   isLoading: boolean;
   setSession: (session: Session | null) => void;
   logout: () => Promise<void>;
   fetchClients: () => Promise<void>;
   updateClient: (clientId: string, updates: ClientUpdate) => Promise<void>;
-  listenToClientChanges: () => () => void;
   fetchPosts: () => Promise<void>;
+  generateNotifications: () => void;
+  markNotificationAsRead: (notificationId: string) => void;
   addPost: (
     postData: Omit<PostInsert, "status" | "created_by" | "edit_history">
   ) => Promise<boolean>;
   updatePost: (postId: string, updates: PostUpdate) => Promise<void>;
   updatePostStatus: (postId: string, status: PostStatus) => Promise<void>;
-  listenToPostChanges: () => () => void;
+  listenToChanges: () => () => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -39,6 +53,7 @@ export const useAppStore = create<AppState>()(
     userRole: null,
     clients: [],
     posts: [],
+    notifications: [],
     isLoading: true,
 
     setSession: (session) => {
@@ -63,6 +78,7 @@ export const useAppStore = create<AppState>()(
         userRole: null,
         posts: [],
         clients: [],
+        notifications: [],
       });
     },
 
@@ -85,36 +101,94 @@ export const useAppStore = create<AppState>()(
       }
     },
 
-    listenToClientChanges: () => {
-      const channel = supabase
-        .channel("realtime-clients")
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "clients" },
-          (payload) => {
-            const currentClients = get().clients;
-            if (payload.eventType === "UPDATE") {
-              const newRecord = payload.new as ClientRow;
-              set({
-                clients: currentClients.map((c) =>
-                  c.id === newRecord.id ? newRecord : c
-                ),
-              });
-            }
-          }
-        )
-        .subscribe();
-      return () => supabase.removeChannel(channel);
-    },
-
     fetchPosts: async () => {
       set({ isLoading: true });
       const { data, error } = await supabase
         .from("posts")
         .select("*")
         .order("scheduled_at", { ascending: false });
-      if (error) console.error("Error fetching posts:", error);
+      if (error) {
+        console.error("Error fetching posts:", error);
+        set({ isLoading: false });
+        return;
+      }
       set({ posts: data || [], isLoading: false });
+    },
+
+    generateNotifications: () => {
+      const { posts, clients } = get();
+      const newNotifications: Notification[] = [];
+      const now = dayjs();
+
+      posts.forEach((post) => {
+        if (post.status === "aguardando_aprovacao") {
+          const scheduledDate = dayjs(post.scheduled_at);
+          const daysUntilDue = scheduledDate.diff(now, "day");
+          const client = clients.find((c) => c.client_id === post.client_id);
+
+          let urgency: "low" | "medium" | "high" | null = null;
+          if (daysUntilDue <= 1 && daysUntilDue >= 0) urgency = "high";
+          else if (daysUntilDue <= 3 && daysUntilDue > 1) urgency = "medium";
+          else if (daysUntilDue <= 5 && daysUntilDue > 3) urgency = "low";
+
+          if (urgency) {
+            newNotifications.push({
+              id: `approval-${post.id}-${daysUntilDue}`,
+              type: "approval_reminder",
+              clientId: post.client_id,
+              postId: post.id,
+              message: `Aprovação pendente para post de ${
+                client?.name || "Cliente"
+              } agendado para ${scheduledDate.format("DD/MM")}.`,
+              urgency,
+              createdAt: new Date().toISOString(),
+              read: false,
+            });
+          }
+        }
+
+        const lastEdit = Array.isArray(post.edit_history)
+          ? (post.edit_history[post.edit_history.length - 1] as any)
+          : null;
+        if (lastEdit && lastEdit.author === "client") {
+          const editDate = dayjs(lastEdit.timestamp);
+          if (now.diff(editDate, "hour") <= 24) {
+            const client = clients.find((c) => c.client_id === post.client_id);
+            newNotifications.push({
+              id: `edit-${post.id}-${lastEdit.timestamp}`,
+              type: "client_edit",
+              clientId: post.client_id,
+              postId: post.id,
+              message: `${
+                client?.name || "Cliente"
+              } alterou a legenda de um post.`,
+              urgency: "low",
+              createdAt: lastEdit.timestamp,
+              read: false,
+            });
+          }
+        }
+      });
+
+      const readNotifications = get().notifications.filter((n) => n.read);
+      const unreadIds = new Set(readNotifications.map((n) => n.id));
+      const finalNotifications = [
+        ...newNotifications.filter((n) => !unreadIds.has(n.id)),
+        ...readNotifications,
+      ];
+
+      set({ notifications: finalNotifications });
+    },
+
+    markNotificationAsRead: (notificationId) => {
+      set((state) => {
+        const notification = state.notifications.find(
+          (n) => n.id === notificationId
+        );
+        if (notification) {
+          notification.read = true;
+        }
+      });
     },
 
     addPost: async (postData) => {
@@ -148,12 +222,9 @@ export const useAppStore = create<AppState>()(
     updatePost: async (postId, updates) => {
       const post = get().posts.find((p) => p.id === postId);
       if (!post) return;
-
       const userRole = get().userRole;
       if (!userRole) return;
-
       const finalUpdates: PostUpdate = { ...updates };
-
       if (
         typeof updates.caption === "string" &&
         updates.caption !== post.caption
@@ -165,7 +236,9 @@ export const useAppStore = create<AppState>()(
           timestamp: new Date().toISOString(),
         };
         const newEditHistory = [
-          ...(Array.isArray(post.edit_history) ? post.edit_history : []),
+          ...(Array.isArray(post.edit_history)
+            ? (post.edit_history as any[])
+            : []),
           newHistoryItem,
         ];
         finalUpdates.edit_history = newEditHistory;
@@ -173,19 +246,16 @@ export const useAppStore = create<AppState>()(
           finalUpdates.status = "aguardando_aprovacao";
         }
       }
-
       const { data: updatedPost, error } = await supabase
         .from("posts")
         .update(finalUpdates)
         .eq("id", postId)
         .select()
         .single();
-
       if (error) {
         console.error("Error updating post:", error);
         return;
       }
-
       if (updatedPost) {
         const currentPosts = get().posts;
         set({
@@ -201,12 +271,10 @@ export const useAppStore = create<AppState>()(
         .eq("id", postId)
         .select()
         .single();
-
       if (error) {
         console.error("Error updating post status:", error);
         return;
       }
-
       if (updatedPost) {
         const currentPosts = get().posts;
         set({
@@ -215,32 +283,33 @@ export const useAppStore = create<AppState>()(
       }
     },
 
-    listenToPostChanges: () => {
-      const channel = supabase
+    listenToChanges: () => {
+      const clientChannel = supabase
+        .channel("realtime-clients")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "clients" },
+          () => get().fetchClients()
+        )
+        .subscribe();
+
+      const postChannel = supabase
         .channel("realtime-posts")
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "posts" },
-          (payload) => {
-            const currentPosts = get().posts;
-            if (payload.eventType === "INSERT") {
-              const newRecord = payload.new as PostRow;
-              set({ posts: [newRecord, ...currentPosts] });
-            } else if (payload.eventType === "UPDATE") {
-              const newRecord = payload.new as PostRow;
-              set({
-                posts: currentPosts.map((p) =>
-                  p.id === newRecord.id ? newRecord : p
-                ),
-              });
-            } else if (payload.eventType === "DELETE") {
-              const oldRecord = payload.old as Partial<PostRow>;
-              set({ posts: currentPosts.filter((p) => p.id !== oldRecord.id) });
-            }
+          () => {
+            get()
+              .fetchPosts()
+              .then(() => get().generateNotifications());
           }
         )
         .subscribe();
-      return () => supabase.removeChannel(channel);
+
+      return () => {
+        supabase.removeChannel(clientChannel);
+        supabase.removeChannel(postChannel);
+      };
     },
   }))
 );

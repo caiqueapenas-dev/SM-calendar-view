@@ -33,6 +33,19 @@ export default function ClientDashboardPage({
       );
   }, [clientPosts]);
 
+  const upcomingPosts = useMemo(() => {
+    return clientPosts
+      .filter(
+        (p) =>
+          p.status === "agendado" && dayjs().isBefore(dayjs(p.scheduled_at))
+      )
+      .sort(
+        (a, b) =>
+          new Date(a.scheduled_at).getTime() -
+          new Date(b.scheduled_at).getTime()
+      );
+  }, [clientPosts]);
+
   const activeStories = useMemo(() => {
     const now = dayjs();
     return clientPosts.filter(
@@ -80,6 +93,27 @@ export default function ClientDashboardPage({
           </div>
         ) : (
           <p className="text-gray-400">Nenhum post para revisar no momento.</p>
+        )}
+      </section>
+
+      <section className="mb-12">
+        <h2 className="text-2xl font-semibold mb-4">
+          Próximos Posts (Aprovados)
+        </h2>
+        {upcomingPosts.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {upcomingPosts.map((p) => (
+              <PostCard
+                key={p.id}
+                post={p}
+                onClick={() => handlePostClick(p)}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="text-gray-400">
+            Nenhum post aprovado agendado para o futuro.
+          </p>
         )}
       </section>
 

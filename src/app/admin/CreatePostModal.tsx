@@ -7,6 +7,7 @@ import { PostMediaType } from "@/lib/types";
 import { Database } from "@/lib/database.types";
 import { Loader } from "lucide-react";
 import { Dayjs } from "dayjs";
+import dayjs from "dayjs";
 import ImageUploader from "../../components/common/ImageUploader";
 
 type PostInsert = Database["public"]["Tables"]["posts"]["Insert"];
@@ -25,8 +26,9 @@ export default function CreatePostModal({
   const { clients, addPost } = useAppStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const activeClients = clients.filter((c) => c.is_active);
   const [clientId, setClientId] = useState(
-    clients.length > 0 ? clients[0].client_id : ""
+    activeClients.length > 0 ? activeClients[0].client_id : ""
   );
   const [caption, setCaption] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
@@ -36,20 +38,28 @@ export default function CreatePostModal({
 
   useEffect(() => {
     if (isOpen) {
-      if (defaultDate) {
-        // Formata a data e adiciona o horário padrão 10:00
-        const formattedDate = defaultDate
-          .hour(10)
-          .minute(0)
-          .second(0)
-          .format("YYYY-MM-DDTHH:mm");
-        setScheduledAt(formattedDate);
-      }
+      const dateToSet = defaultDate || dayjs();
+      const formattedDate = dateToSet
+        .hour(10)
+        .minute(0)
+        .second(0)
+        .format("YYYY-MM-DDTHH:mm");
+      setScheduledAt(formattedDate);
     } else {
-      // Reseta o formulário quando o modal fecha
       resetForm();
     }
   }, [isOpen, defaultDate]);
+
+  // Atualiza o cliente selecionado se a lista de clientes mudar
+  useEffect(() => {
+    const activeClients = clients.filter((c) => c.is_active);
+    if (
+      activeClients.length > 0 &&
+      !activeClients.find((c) => c.client_id === clientId)
+    ) {
+      setClientId(activeClients[0].client_id);
+    }
+  }, [clients]);
 
   const resetForm = () => {
     setCaption("");
@@ -57,8 +67,9 @@ export default function CreatePostModal({
     setScheduledAt("");
     setPlatforms([]);
     setMediaType("FOTO");
-    if (clients.length > 0) {
-      setClientId(clients[0].client_id);
+    const activeClients = clients.filter((c) => c.is_active);
+    if (activeClients.length > 0) {
+      setClientId(activeClients[0].client_id);
     }
   };
 
@@ -115,7 +126,7 @@ export default function CreatePostModal({
             onChange={(e) => setClientId(e.target.value)}
             className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md py-2 px-3 text-white"
           >
-            {clients.map((c) => (
+            {activeClients.map((c) => (
               <option key={c.id} value={c.client_id}>
                 {c.custom_name || c.name}
               </option>

@@ -20,19 +20,18 @@ export default function ClientLayout({
     logout,
     fetchPosts,
     fetchClients,
-    listenToPostChanges,
+    listenToChanges,
     isLoading,
   } = useAppStore();
   const client = clients.find((c) => c.client_id === params.clientId);
 
   useEffect(() => {
-    // Busca clientes e posts ao carregar o layout
     fetchClients();
     fetchPosts();
 
-    const unsubscribe = listenToPostChanges();
+    const unsubscribe = listenToChanges(); // CORREÇÃO: Chamando a função unificada
     return () => unsubscribe();
-  }, [fetchClients, fetchPosts, listenToPostChanges]);
+  }, [fetchClients, fetchPosts, listenToChanges]);
 
   const handleLogout = async () => {
     await logout();

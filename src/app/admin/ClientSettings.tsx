@@ -1,7 +1,7 @@
 "use client";
 import { useAppStore } from "@/store/appStore";
 import { useState } from "react";
-import { Save, Edit, X } from "lucide-react";
+import { Save, Edit, X, Eye, EyeOff } from "lucide-react";
 import { Database } from "@/lib/database.types";
 
 type ClientRow = Database["public"]["Tables"]["clients"]["Row"];
@@ -21,6 +21,10 @@ export default function ClientSettings() {
     setEditingClientId(null);
   };
 
+  const handleToggleActive = async (client: ClientRow) => {
+    await updateClient(client.id, { is_active: !client.is_active });
+  };
+
   return (
     <div className="bg-gray-800 rounded-xl shadow-md p-6">
       <h2 className="text-2xl font-semibold mb-6">Gerenciar Clientes</h2>
@@ -28,7 +32,9 @@ export default function ClientSettings() {
         {clients.map((client) => (
           <li
             key={client.id}
-            className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-gray-900 p-4 rounded-lg"
+            className={`flex flex-col sm:flex-row items-start sm:items-center justify-between bg-gray-900 p-4 rounded-lg transition-opacity ${
+              !client.is_active ? "opacity-50" : ""
+            }`}
           >
             <div className="flex items-center gap-4">
               <img
@@ -84,6 +90,19 @@ export default function ClientSettings() {
                   <Edit size={20} />
                 </button>
               )}
+              <button
+                onClick={() => handleToggleActive(client)}
+                className="p-2 hover:bg-gray-700 rounded-full"
+                title={
+                  client.is_active ? "Desativar cliente" : "Ativar cliente"
+                }
+              >
+                {client.is_active ? (
+                  <Eye size={20} className="text-green-500" />
+                ) : (
+                  <EyeOff size={20} className="text-red-500" />
+                )}
+              </button>
             </div>
           </li>
         ))}

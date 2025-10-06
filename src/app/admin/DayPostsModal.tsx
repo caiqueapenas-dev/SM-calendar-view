@@ -3,6 +3,7 @@ import Modal from "../../components/common/Modal";
 import MediaTypeTag from "../../components/common/MediaTypeTag";
 import { Database } from "@/lib/database.types";
 import { PostMediaType } from "@/lib/types";
+import { CirclePlus } from "lucide-react";
 
 type PostRow = Database["public"]["Tables"]["posts"]["Row"];
 type ClientRow = Database["public"]["Tables"]["clients"]["Row"];
@@ -14,6 +15,7 @@ interface DayPostsModalProps {
   posts: PostRow[];
   clients: ClientRow[];
   onPostSelect: (post: PostRow) => void;
+  onCreatePost: (date: Dayjs) => void;
 }
 
 export default function DayPostsModal({
@@ -23,6 +25,7 @@ export default function DayPostsModal({
   posts,
   clients,
   onPostSelect,
+  onCreatePost,
 }: DayPostsModalProps) {
   if (!date) return null;
 
@@ -45,6 +48,16 @@ export default function DayPostsModal({
       title={`Posts de ${date.format("dddd, D [de] MMMM [de] YYYY")}`}
     >
       <div className="p-6 overflow-y-auto max-h-[70vh]">
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={() => onCreatePost(date)}
+            className="flex items-center gap-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1 px-3 rounded-lg"
+          >
+            <CirclePlus size={16} />
+            Criar post nesta data
+          </button>
+        </div>
+
         {Object.entries(postsByClient).map(([clientId, clientPosts]) => {
           const client = clients.find((c) => c.client_id === clientId);
           return (

@@ -21,6 +21,7 @@ export type Database = {
           custom_name: string | null
           id: string
           instagram_handle: string | null
+          is_active: boolean | null
           name: string
           profile_picture_url: string | null
         }
@@ -30,6 +31,7 @@ export type Database = {
           custom_name?: string | null
           id?: string
           instagram_handle?: string | null
+          is_active?: boolean | null
           name: string
           profile_picture_url?: string | null
         }
@@ -39,6 +41,7 @@ export type Database = {
           custom_name?: string | null
           id?: string
           instagram_handle?: string | null
+          is_active?: boolean | null
           name?: string
           profile_picture_url?: string | null
         }

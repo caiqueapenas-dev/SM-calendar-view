@@ -6,7 +6,7 @@ import CalendarView from "@/components/calendar/CalendarView";
 import PostModal from "@/components/common/PostModal";
 import DayPostsModal from "./DayPostsModal";
 import dayjs, { Dayjs } from "dayjs";
-import { CirclePlus as PlusCircle } from "lucide-react";
+import { PlusCircle } from "lucide-react"; // O nome importado (ou renomeado) é PlusCircle
 import CreatePostModal from "./CreatePostModal";
 import { Database } from "@/lib/database.types";
 
@@ -35,8 +35,6 @@ export default function AdminDashboardPage() {
       dayjs(p.scheduled_at).isSame(date, "day")
     );
 
-    // Se não houver posts, abre o modal de criação com a data pré-selecionada.
-    // Senão, abre o modal de visualização dos posts do dia.
     if (postsOnDay.length === 0) {
       setDefaultCreateDate(date);
       setCreateModalOpen(true);
@@ -47,7 +45,13 @@ export default function AdminDashboardPage() {
   };
 
   const openCreateModal = () => {
-    setDefaultCreateDate(null); // Limpa a data padrão ao abrir pelo botão principal
+    setDefaultCreateDate(null);
+    setCreateModalOpen(true);
+  };
+
+  const handleCreatePostOnDate = (date: Dayjs) => {
+    setDayModalOpen(false);
+    setDefaultCreateDate(date);
     setCreateModalOpen(true);
   };
 
@@ -59,6 +63,7 @@ export default function AdminDashboardPage() {
           onClick={openCreateModal}
           className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg"
         >
+          {/* CORREÇÃO: Usando o nome correto 'PlusCircle' */}
           <PlusCircle size={20} />
           Agendar Post
         </button>
@@ -87,6 +92,7 @@ export default function AdminDashboardPage() {
         )}
         clients={clients}
         onPostSelect={handlePostClick}
+        onCreatePost={handleCreatePostOnDate}
       />
 
       <CreatePostModal
