@@ -7,6 +7,7 @@ import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useAppStore } from "@/store/appStore";
+import SpecialDatesInCalendar from "./SpecialDatesInCalendar";
 
 type PostRow = Database["public"]["Tables"]["posts"]["Row"];
 type ClientRow = Database["public"]["Tables"]["clients"]["Row"];
@@ -71,6 +72,7 @@ interface CalendarDayProps {
   onPostClick: (post: PostRow) => void;
   isAdminView: boolean;
   clients: ClientRow[];
+  clientId?: string; // For client view
 }
 
 export default function CalendarDay({
@@ -81,6 +83,7 @@ export default function CalendarDay({
   onPostClick,
   isAdminView,
   clients,
+  clientId,
 }: CalendarDayProps) {
   const { specialDates } = useAppStore();
   const { isOver, setNodeRef } = useDroppable({
@@ -100,6 +103,12 @@ export default function CalendarDay({
     }
     return specialDate.isSame(date, "day");
   });
+
+  // Get client color for visual indicator
+  const getClientColor = (clientIdToCheck: string) => {
+    const client = clients.find(c => c.client_id === clientIdToCheck);
+    return client?.brand_color || '#6366f1';
+  };
 
   return (
     <div
@@ -158,18 +167,24 @@ export default function CalendarDay({
           )
         )}
         
-        {/* Special dates badges */}
-        {daySpecialDates.length > 0 && (
+        {/* Special dates - show in both admin and client view */}
+        {!isAdminView && clientId && (
+          <SpecialDatesInCalendar date={date} clientId={clientId} />
+        )}
+        
+        {isAdminView && daySpecialDates.length > 0 && (
           <div className="mt-1 space-y-1">
             {daySpecialDates.slice(0, 2).map((specialDate) => {
               const client = clients.find(c => c.client_id === specialDate.client_id);
               return (
                 <div
                   key={specialDate.id}
-                  className="px-2 py-1 bg-green-600 text-white text-xs rounded-full truncate"
+                  className="px-2 py-1 text-white text-xs rounded-full truncate flex items-center gap-1"
+                  style={{ backgroundColor: client?.brand_color || '#10b981' }}
                   title={`${specialDate.title} - ${client?.name || 'Cliente'}`}
                 >
-                  🎉 {specialDate.title}
+                  <span>🎉</span>
+                  <span className="truncate">{specialDate.title}</span>
                 </div>
               );
             })}

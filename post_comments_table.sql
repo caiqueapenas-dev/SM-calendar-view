@@ -15,3 +15,20 @@ CREATE INDEX IF NOT EXISTS idx_post_comments_created_at ON post_comments(created
 -- Enable realtime
 ALTER TABLE post_comments REPLICA IDENTITY FULL;
 
+-- Enable Row Level Security
+ALTER TABLE post_comments ENABLE ROW LEVEL SECURITY;
+
+-- Create policies
+DROP POLICY IF EXISTS "Users can view post comments" ON post_comments;
+DROP POLICY IF EXISTS "Authenticated users can insert post comments" ON post_comments;
+DROP POLICY IF EXISTS "Authenticated users can delete post comments" ON post_comments;
+
+CREATE POLICY "Users can view post comments"
+ON post_comments FOR SELECT TO authenticated USING (true);
+
+CREATE POLICY "Authenticated users can insert post comments"
+ON post_comments FOR INSERT TO authenticated WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can delete post comments"
+ON post_comments FOR DELETE TO authenticated USING (true);
+

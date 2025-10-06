@@ -38,54 +38,111 @@ export default function CalendarHeader({
   };
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between mb-4">
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
+    <>
+      {/* Mobile-First Design */}
+      <div className="md:hidden space-y-3 mb-4">
+        {/* Navigation Row */}
+        <div className="flex items-center justify-between">
           <button
             onClick={() => changeDate(-1)}
-            className="bg-gray-700 hover:bg-gray-600 p-2 rounded-lg"
+            className="bg-gray-700 hover:bg-gray-600 p-3 rounded-lg"
           >
             <ChevronLeft size={20} />
           </button>
-          <h2 className="text-xl font-semibold w-48 text-center capitalize">
+          <h2 className="text-lg font-semibold capitalize">
             {getHeaderText()}
           </h2>
           <button
             onClick={() => changeDate(1)}
-            className="bg-gray-700 hover:bg-gray-600 p-2 rounded-lg"
+            className="bg-gray-700 hover:bg-gray-600 p-3 rounded-lg"
           >
             <ChevronRight size={20} />
           </button>
         </div>
-        <div className="flex bg-gray-900 rounded-lg p-1 space-x-1">
+        
+        {/* View Mode and Today Button Row */}
+        <div className="flex gap-2">
+          <div className="flex bg-gray-900 rounded-lg p-1 flex-1">
+            <button
+              onClick={() => setViewMode("month")}
+              className={`flex-1 py-2 text-sm font-medium rounded-md ${
+                viewMode === "month"
+                  ? "bg-indigo-600 text-white"
+                  : "text-gray-300"
+              }`}
+            >
+              Mês
+            </button>
+            <button
+              onClick={() => setViewMode("week")}
+              className={`flex-1 py-2 text-sm font-medium rounded-md ${
+                viewMode === "week"
+                  ? "bg-indigo-600 text-white"
+                  : "text-gray-300"
+              }`}
+            >
+              Semana
+            </button>
+          </div>
           <button
-            onClick={() => setViewMode("month")}
-            className={`px-3 py-1 text-sm font-medium rounded-md ${
-              viewMode === "month"
-                ? "bg-indigo-600 text-white"
-                : "text-gray-300 hover:bg-gray-700"
-            }`}
+            onClick={handleToday}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-6 rounded-lg text-sm"
           >
-            Mês
-          </button>
-          <button
-            onClick={() => setViewMode("week")}
-            className={`px-3 py-1 text-sm font-medium rounded-md ${
-              viewMode === "week"
-                ? "bg-indigo-600 text-white"
-                : "text-gray-300 hover:bg-gray-700"
-            }`}
-          >
-            Semana
+            Hoje
           </button>
         </div>
       </div>
-      <button
-        onClick={handleToday}
-        className="mt-4 sm:mt-0 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg text-sm"
-      >
-        Hoje
-      </button>
-    </div>
+
+      {/* Desktop Design */}
+      <div className="hidden md:flex items-center justify-between mb-4">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => changeDate(-1)}
+              className="bg-gray-700 hover:bg-gray-600 p-2 rounded-lg"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <h2 className="text-xl font-semibold w-48 text-center capitalize">
+              {getHeaderText()}
+            </h2>
+            <button
+              onClick={() => changeDate(1)}
+              className="bg-gray-700 hover:bg-gray-600 p-2 rounded-lg"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+          <div className="flex bg-gray-900 rounded-lg p-1 space-x-1">
+            <button
+              onClick={() => setViewMode("month")}
+              className={`px-3 py-1 text-sm font-medium rounded-md ${
+                viewMode === "month"
+                  ? "bg-indigo-600 text-white"
+                  : "text-gray-300 hover:bg-gray-700"
+              }`}
+            >
+              Mês
+            </button>
+            <button
+              onClick={() => setViewMode("week")}
+              className={`px-3 py-1 text-sm font-medium rounded-md ${
+                viewMode === "week"
+                  ? "bg-indigo-600 text-white"
+                  : "text-gray-300 hover:bg-gray-700"
+              }`}
+            >
+              Semana
+            </button>
+          </div>
+        </div>
+        <button
+          onClick={handleToday}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg text-sm"
+        >
+          Hoje
+        </button>
+      </div>
+    </>
   );
 }

@@ -29,6 +29,7 @@ export default function EditClientModal({
   const [customName, setCustomName] = useState("");
   const [category, setCategory] = useState("");
   const [instagram, setInstagram] = useState("");
+  const [brandColor, setBrandColor] = useState("#6366f1");
   const [pfpUrl, setPfpUrl] = useState<string | null>(null);
   const [newPfpFile, setNewPfpFile] = useState<File | null>(null);
 
@@ -37,6 +38,7 @@ export default function EditClientModal({
     customName: client.custom_name || "",
     category: client.category || "",
     instagram: client.instagram_handle || "",
+    brandColor: client.brand_color || "#6366f1",
     pfpUrl: client.profile_picture_url || null,
   };
 
@@ -46,6 +48,7 @@ export default function EditClientModal({
       setCustomName(initialData.customName);
       setCategory(initialData.category);
       setInstagram(initialData.instagram);
+      setBrandColor(initialData.brandColor);
       setPfpUrl(initialData.pfpUrl);
       setNewPfpFile(null);
       setHasUnsavedChanges(false);
@@ -58,9 +61,10 @@ export default function EditClientModal({
       customName !== initialData.customName ||
       category !== initialData.category ||
       instagram !== initialData.instagram ||
+      brandColor !== initialData.brandColor ||
       pfpUrl !== initialData.pfpUrl;
     setHasUnsavedChanges(hasChanged);
-  }, [name, customName, category, instagram, pfpUrl, initialData]);
+  }, [name, customName, category, instagram, brandColor, pfpUrl, initialData]);
 
   const handleClose = () => {
     if (
@@ -105,6 +109,7 @@ export default function EditClientModal({
         custom_name: customName,
         category,
         instagram_handle: instagram,
+        brand_color: brandColor,
         profile_picture_url: finalPfpUrl,
       };
       await updateClient(client.id, updates);
@@ -192,6 +197,33 @@ export default function EditClientModal({
             onChange={(e) => setInstagram(e.target.value)}
             className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md py-2 px-3 text-white"
           />
+        </div>
+        <div>
+          <label className="text-sm font-medium text-gray-300 mb-2 block">
+            Cor da Marca
+          </label>
+          <div className="flex items-center gap-3">
+            <input
+              type="color"
+              value={brandColor}
+              onChange={(e) => setBrandColor(e.target.value)}
+              className="w-16 h-10 rounded cursor-pointer"
+            />
+            <input
+              type="text"
+              value={brandColor}
+              onChange={(e) => setBrandColor(e.target.value)}
+              className="flex-1 bg-gray-700 border-gray-600 rounded-md py-2 px-3 text-white font-mono text-sm"
+              placeholder="#6366f1"
+            />
+            <div 
+              className="w-10 h-10 rounded-lg border-2 border-gray-600" 
+              style={{ backgroundColor: brandColor }}
+            />
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            Esta cor será usada para identificar o cliente no calendário
+          </p>
         </div>
         <div className="flex justify-end gap-3 pt-4">
           <button

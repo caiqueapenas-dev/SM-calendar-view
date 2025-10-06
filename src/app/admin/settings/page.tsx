@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import ClientSettings from "../ClientSettings";
+import AdminProfile from "@/components/admin/AdminProfile";
 import InsightsPanel from "@/components/insights/InsightsPanel";
 import SpecialDatesModal from "@/components/special-dates/SpecialDatesModal";
 import { MessageCircle, Calendar } from "lucide-react";
@@ -16,9 +17,19 @@ export default function SettingsPage() {
   const activeClients = clients.filter((c) => c.is_active);
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Configurações</h1>
+    <div className="space-y-8">
+      <h1 className="text-3xl font-bold">Configurações</h1>
+
+      {/* Admin Profile Section */}
+      <div>
+        <h2 className="text-xl font-semibold mb-4">Meu Perfil</h2>
+        <AdminProfile />
+      </div>
+
+      {/* Client Management Section */}
+      <div>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-semibold">Gerenciar Clientes</h2>
         {activeClients.length > 0 && (
           <div className="flex items-center gap-4">
             <select
@@ -51,8 +62,9 @@ export default function SettingsPage() {
             </button>
           </div>
         )}
+        </div>
       </div>
-      <ClientSettings />
+        <ClientSettings />
 
       {selectedClientId && (
         <>

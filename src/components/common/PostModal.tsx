@@ -69,10 +69,12 @@ export default function PostModal({
   onClose,
   post: initialPost,
 }: PostModalProps) {
-  const { userRole, updatePost, updatePostStatus, posts } = useAppStore();
+  const { userRole, updatePost, updatePostStatus, posts, clients } = useAppStore();
   const post = isOpen
     ? posts.find((p) => p.id === initialPost?.id) || initialPost
     : initialPost;
+  
+  const [adminProfiles, setAdminProfiles] = useState<Record<string, {name: string}>>({});
 
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState("review");
@@ -208,6 +210,15 @@ export default function PostModal({
     );
   };
 
+  // Helper to get author real name
+  const getAuthorName = (authorRole: string) => {
+    if (authorRole === "admin") {
+      return adminProfiles[post?.client_id || ""]?.name || "Admin";
+    }
+    const client = clients.find(c => c.client_id === post?.client_id);
+    return client?.name || "Cliente";
+  };
+
   const nextSlide = () =>
     setCurrentSlide((prev) => (prev + 1) % carouselImages.length);
   const prevSlide = () =>
@@ -248,7 +259,15 @@ export default function PostModal({
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose}>
-      <div className="flex flex-col max-h-[90vh] h-[90vh]">
+      <div className="flex flex-col max-h-[90vh] h-[90vh] relative">
+        {/* Rejected Overlay */}
+        {post?.status === "negado" && (
+          <div className="absolute inset-0 bg-red-900/30 backdrop-blur-[2px] z-10 flex items-center justify-center pointer-events-none rounded-lg">
+            <div className="bg-red-600 text-white px-6 py-3 rounded-full font-bold shadow-lg animate-scale-in">
+              ❌ REPROVADO - NÃO SERÁ PUBLICADO
+            </div>
+          </div>
+        )}
         <div 
           className="relative w-full h-[40vh] flex-shrink-0 bg-black rounded-t-lg group"
           onTouchStart={onTouchStart}
@@ -382,8 +401,8 @@ export default function PostModal({
                   .reverse()
                   .map((edit: any, index) => (
                     <div key={index} className="text-sm">
-                      <p className="text-gray-500 mb-1 capitalize">
-                        Alterado por {edit.author} em:{" "}
+                      <p className="text-gray-500 mb-1">
+                        Alterado por <span className="font-semibold text-gray-400">{getAuthorName(edit.author)}</span> em:{" "}
                         {dayjs(edit.timestamp).format("DD/MM/YYYY HH:mm")}
                       </p>
                       <DiffViewer

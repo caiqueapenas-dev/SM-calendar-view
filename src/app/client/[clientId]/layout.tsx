@@ -73,7 +73,7 @@ export default function ClientLayout({
           />
           <div>
             <h1 className="text-2xl md:text-3xl font-bold">
-              Bem-vindo, {client?.custom_name || client?.name}
+              Bem-vindo, {client?.name}
             </h1>
             <p className="text-gray-400">Gerencie suas publicações.</p>
           </div>

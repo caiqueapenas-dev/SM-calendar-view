@@ -44,7 +44,7 @@ interface AppState {
   notifications: Notification[];
   specialDates: SpecialDate[];
   isLoading: boolean;
-  setSession: (session: Session | null) => void;
+  setSession: (session: Session | null) => Promise<void>;
   logout: () => Promise<void>;
   fetchClients: () => Promise<void>;
   updateClient: (clientId: string, updates: ClientUpdate) => Promise<void>;
@@ -71,18 +71,35 @@ export const useAppStore = create<AppState>()(
     specialDates: [],
     isLoading: true,
 
-    setSession: (session) => {
+    setSession: async (session) => {
       set((state) => {
         state.session = session;
         state.user = session?.user ?? null;
-        if (session?.user?.email?.includes("admin")) {
-          state.userRole = "admin";
-        } else if (session) {
-          state.userRole = "client";
-        } else {
-          state.userRole = null;
-        }
       });
+
+      // Buscar role real do database
+      if (session?.user) {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', session.user.id)
+          .maybeSingle();
+
+        if (userData) {
+          set({ userRole: userData.role as UserRole });
+        } else {
+          // Fallback: verificar se é cliente
+          const { data: clientData } = await supabase
+            .from('clients')
+            .select('client_id')
+            .eq('email', session.user.email)
+            .single();
+
+          set({ userRole: clientData ? 'client' : 'admin' });
+        }
+      } else {
+        set({ userRole: null });
+      }
     },
 
     logout: async () => {

@@ -1,16 +1,7 @@
 const CACHE_NAME = 'sm-planner-v1';
-const urlsToCache = [
-  '/',
-  '/admin',
-  '/globals.css',
-];
 
 // Install event - cache resources
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(urlsToCache))
-  );
   self.skipWaiting();
 });
 

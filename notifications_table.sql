@@ -14,3 +14,23 @@ CREATE TABLE IF NOT EXISTS notifications (
 -- Create index for better performance
 CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON notifications(user_id, is_read);
 CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC);
+
+-- Enable Row Level Security
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+
+-- Create policies (users can only see their own notifications)
+DROP POLICY IF EXISTS "Users can view their own notifications" ON notifications;
+DROP POLICY IF EXISTS "Users can insert notifications" ON notifications;
+DROP POLICY IF EXISTS "Users can update their own notifications" ON notifications;
+
+CREATE POLICY "Users can view their own notifications"
+ON notifications FOR SELECT TO authenticated 
+USING (auth.uid()::text = user_id);
+
+CREATE POLICY "Users can insert notifications"
+ON notifications FOR INSERT TO authenticated 
+WITH CHECK (true);
+
+CREATE POLICY "Users can update their own notifications"
+ON notifications FOR UPDATE TO authenticated 
+USING (auth.uid()::text = user_id);

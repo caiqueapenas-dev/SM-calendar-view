@@ -14,7 +14,32 @@ export type Database = {
   };
   public: {
     Tables: {
+      admin_profiles: {
+        Row: {
+          id: string;
+          name: string;
+          profile_picture_url: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          name: string;
+          profile_picture_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          profile_picture_url?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      
       clients: {
+        
         Row: {
           category: string | null;
           client_id: string;
@@ -24,6 +49,8 @@ export type Database = {
           is_active: boolean | null;
           name: string;
           profile_picture_url: string | null;
+          brand_color: string | null;
+
         };
         Insert: {
           category?: string | null;
@@ -34,6 +61,7 @@ export type Database = {
           is_active?: boolean | null;
           name: string;
           profile_picture_url?: string | null;
+          brand_color?: string | null;
         };
         Update: {
           category?: string | null;
@@ -44,6 +72,7 @@ export type Database = {
           is_active?: boolean | null;
           name?: string;
           profile_picture_url?: string | null;
+          brand_color?: string | null;
         };
         Relationships: [];
       };

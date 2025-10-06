@@ -10,7 +10,6 @@ const tagColors: Record<PostMediaType, string> = {
   REELS: "bg-purple-500 text-purple-100",
   CARROSSEL: "bg-rose-500 text-rose-100",
   STORY: "bg-amber-500 text-amber-100",
-  VIDEO: "bg-indigo-500 text-indigo-100",
 };
 
 export default function MediaTypeTag({

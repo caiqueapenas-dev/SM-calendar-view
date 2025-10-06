@@ -58,7 +58,9 @@ export default function PostCard({
   return (
     <div
       onClick={onClick}
-      className="bg-gray-800 rounded-lg shadow-lg overflow-hidden flex flex-col cursor-pointer hover:ring-2 hover:ring-indigo-500 transition-all duration-200"
+      className={`bg-gray-800 rounded-lg shadow-lg overflow-hidden flex flex-col cursor-pointer hover:ring-2 hover:ring-indigo-500 transition-all duration-200 relative ${
+        post.status === "negado" ? "opacity-75" : ""
+      }`}
     >
       <div className="relative w-full h-48">
         <img
@@ -71,7 +73,14 @@ export default function PostCard({
             target.src = placeholderUrl;
           }}
         />
-        {statusInfo && (
+        {post.status === "negado" && (
+          <div className="absolute inset-0 bg-red-900/40 backdrop-blur-[1px] flex items-center justify-center">
+            <span className="bg-red-600 text-white text-xs px-3 py-1 rounded-full font-bold shadow-lg">
+              ❌ REPROVADO
+            </span>
+          </div>
+        )}
+        {statusInfo && post.status !== "negado" && (
           <div
             className={`absolute top-2 right-2 text-xs font-bold px-2 py-1 rounded-full ${statusInfo.classes}`}
           >
